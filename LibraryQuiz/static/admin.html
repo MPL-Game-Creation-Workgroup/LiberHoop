@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Library Quiz Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-box">
+            <div class="login-logo">📚</div>
+            <h1>Quiz Admin</h1>
+            <p class="auth-mode-badge" id="authModeBadge"></p>
+            
+            <!-- Login Form -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" placeholder="admin" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-primary login-btn">Login</button>
+                <p class="login-error" id="loginError"></p>
+            </form>
+            
+            <!-- Signup link (Supabase only) -->
+            <div id="signupLink" class="signup-link" style="display: none;">
+                <p>Need an account? <a href="#" onclick="showSignupForm()">Sign up</a></p>
+            </div>
+        </div>
+        
+        <!-- Signup Form (Supabase only) -->
+        <div class="login-box" id="signupBox" style="display: none;">
+            <div class="login-logo">📚</div>
+            <h1>Create Account</h1>
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="signupName">Display Name</label>
+                    <input type="text" id="signupName" placeholder="Your name" required>
+                </div>
+                <div class="form-group">
+                    <label for="signupUsername">Username</label>
+                    <input type="text" id="signupUsername" placeholder="Min 3 characters" required minlength="3">
+                </div>
+                <div class="form-group">
+                    <label for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" placeholder="Min 6 characters" required minlength="6">
+                </div>
+                <button type="submit" class="btn-primary login-btn">Create Account</button>
+                <p class="login-error" id="signupError"></p>
+                <p class="signup-success" id="signupSuccess" style="display: none;"></p>
+            </form>
+            <div class="signup-link">
+                <p>Already have an account? <a href="#" onclick="showLoginForm()">Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Admin Panel -->
+    <div id="adminPanel" class="admin-container" style="display: none;">
+        <header class="admin-header">
+            <div class="logo">
+                <span>📚</span>
+                <h1>Quiz Admin</h1>
+            </div>
+            <div class="header-right">
+                <!-- No active session -->
+                <div id="noSessionControls" class="session-controls">
+                    <button class="btn-host" id="startHostingBtn">
+                        🎮 Start Hosting
+                    </button>
+                </div>
+                
+                <!-- Active session controls -->
+                <div id="activeSessionControls" class="session-controls" style="display: none;">
+                    <div class="session-info">
+                        <span class="session-badge">🎮 Room: <strong id="sessionRoomCode">----</strong></span>
+                        <span class="session-players" id="sessionPlayerCount">0 players</span>
+                    </div>
+                    <button class="btn-host" id="rejoinSessionBtn" title="Rejoin Session">
+                        📺 Rejoin
+                    </button>
+                    <button class="btn-warning" id="restartSessionBtn" title="End current & start new">
+                        🔄 Restart
+                    </button>
+                    <button class="btn-danger-small" id="closeSessionBtn" title="Close Session">
+                        ✕
+                    </button>
+                </div>
+                
+                <span id="adminName" class="admin-name"></span>
+                <button class="btn-secondary" id="logoutBtn">Logout</button>
+            </div>
+        </header>
+
+        <main class="admin-content">
+            <div class="questions-layout">
+                <aside class="categories-sidebar">
+                    <div class="sidebar-header">
+                        <h2>Categories</h2>
+                        <button class="btn-icon" id="addCategoryBtn" title="Add Category">+</button>
+                    </div>
+                    <ul class="categories-list" id="categoriesList">
+                        <!-- Categories loaded dynamically -->
+                    </ul>
+                </aside>
+
+                <div class="questions-main">
+                    <div class="questions-header">
+                        <h2 id="categoryTitle">Select a category</h2>
+                        <button class="btn-primary" id="addQuestionBtn" style="display: none;">
+                            + Add Question
+                        </button>
+                    </div>
+
+                    <div class="questions-list" id="questionsList">
+                        <p class="empty-state">Select a category to view and edit questions.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Question Modal -->
+    <div class="modal" id="questionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Question</h3>
+                <button class="modal-close" onclick="closeModal('questionModal')">&times;</button>
+            </div>
+            <form id="questionForm">
+                <input type="hidden" id="questionId">
+                <input type="hidden" id="questionCategory">
+
+                <div class="form-group">
+                    <label for="questionType">Question Type</label>
+                    <select id="questionType" onchange="updateQuestionForm()">
+                        <option value="choice">Multiple Choice</option>
+                        <option value="truefalse">True / False</option>
+                        <option value="text">Text Input</option>
+                        <option value="number">Number Input</option>
+                        <option value="poll">Poll (No Right Answer)</option>
+                        <option value="wager">Wager (Bet Points)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="questionText">Question</label>
+                    <textarea id="questionText" rows="3" required placeholder="Enter your question..."></textarea>
+                </div>
+
+                <!-- Multiple Choice / Poll / Wager Answers -->
+                <div id="choiceAnswersGroup" class="form-group">
+                    <label>Answers</label>
+                    <div class="answers-inputs">
+                        <div class="answer-input red">
+                            <span class="shape">▲</span>
+                            <input type="text" id="answer0" placeholder="Answer 1">
+                            <input type="radio" name="correct" value="0" class="correct-radio">
+                        </div>
+                        <div class="answer-input blue">
+                            <span class="shape">◆</span>
+                            <input type="text" id="answer1" placeholder="Answer 2">
+                            <input type="radio" name="correct" value="1" class="correct-radio">
+                        </div>
+                        <div class="answer-input yellow">
+                            <span class="shape">●</span>
+                            <input type="text" id="answer2" placeholder="Answer 3">
+                            <input type="radio" name="correct" value="2" class="correct-radio">
+                        </div>
+                        <div class="answer-input green">
+                            <span class="shape">■</span>
+                            <input type="text" id="answer3" placeholder="Answer 4">
+                            <input type="radio" name="correct" value="3" class="correct-radio">
+                        </div>
+                    </div>
+                    <p class="help-text" id="correctAnswerHelp">Select the radio button next to the correct answer</p>
+                </div>
+
+                <!-- True/False Answer -->
+                <div id="trueFalseGroup" class="form-group" style="display: none;">
+                    <label>Correct Answer</label>
+                    <div class="truefalse-buttons">
+                        <button type="button" class="tf-btn true" data-value="true">TRUE</button>
+                        <button type="button" class="tf-btn false" data-value="false">FALSE</button>
+                    </div>
+                    <input type="hidden" id="trueFalseAnswer" value="true">
+                </div>
+
+                <!-- Text Answer -->
+                <div id="textAnswerGroup" class="form-group" style="display: none;">
+                    <label for="textCorrectAnswer">Correct Answer(s)</label>
+                    <input type="text" id="textCorrectAnswer" placeholder="Correct answer (separate multiple with commas)">
+                    <p class="help-text">Players' answers will be matched case-insensitively</p>
+                </div>
+
+                <!-- Number Answer -->
+                <div id="numberAnswerGroup" class="form-group" style="display: none;">
+                    <label for="numberCorrectAnswer">Correct Number</label>
+                    <input type="number" id="numberCorrectAnswer" placeholder="e.g. 42">
+                    <label for="numberTolerance" style="margin-top: 0.5rem;">Tolerance (±)</label>
+                    <input type="number" id="numberTolerance" value="0" min="0" placeholder="0 = exact match">
+                    <p class="help-text">Allow answers within ± this range</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="timeLimit">Time Limit (seconds)</label>
+                    <input type="number" id="timeLimit" value="15" min="5" max="60" required>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('questionModal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Add Category</h3>
+                <button class="modal-close" onclick="closeModal('categoryModal')">&times;</button>
+            </div>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label for="categoryName">Category Name</label>
+                    <input type="text" id="categoryName" placeholder="e.g. Science & Nature" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('categoryModal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Delete Question</h3>
+                <button class="modal-close" onclick="closeModal('deleteModal')">&times;</button>
+            </div>
+            <p>Are you sure you want to delete this question? This cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
+                <button class="btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

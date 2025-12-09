@@ -1,0 +1,8 @@
+{
+  "admins": {
+    "admin": {
+      "password": "library123",
+      "name": "Admin"
+    }
+  }
+}

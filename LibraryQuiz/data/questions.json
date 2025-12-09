@@ -1,0 +1,104 @@
+{
+  "categories": {
+    "general": {
+      "name": "General Knowledge",
+      "questions": [
+        {
+          "id": "q1",
+          "type": "choice",
+          "question": "What is the largest planet in our solar system?",
+          "answers": [
+            "Mars",
+            "Jupiter",
+            "Saturn",
+            "Neptune"
+          ],
+          "correct": 1,
+          "time_limit": 20
+        },
+        {
+          "id": "q3",
+          "type": "number",
+          "question": "How many planets are in our solar system?",
+          "correct": 8,
+          "tolerance": 0,
+          "time_limit": 15
+        }
+      ]
+    },
+    "books": {
+      "name": "Books & Literature",
+      "questions": []
+    },
+    "pop_culture": {
+      "name": "Pop Culture",
+      "questions": [
+        {
+          "id": "p1",
+          "type": "choice",
+          "question": "What streaming service makes 'Stranger Things'?",
+          "answers": [
+            "Hulu",
+            "Disney+",
+            "Netflix",
+            "Amazon Prime"
+          ],
+          "correct": 2,
+          "time_limit": 10
+        },
+        {
+          "id": "p2",
+          "type": "number",
+          "question": "What year did Minecraft officially release?",
+          "correct": 2011,
+          "tolerance": 0,
+          "time_limit": 15
+        },
+        {
+          "id": "p3",
+          "type": "wager",
+          "question": "Which movie has the highest box office of all time?",
+          "answers": [
+            "Avengers: Endgame",
+            "Avatar",
+            "Titanic",
+            "Star Wars: The Force Awakens"
+          ],
+          "correct": 1,
+          "time_limit": 25
+        }
+      ]
+    },
+    "hot_takes": {
+      "name": "\ud83d\udd25 Hot Takes (Polls)",
+      "questions": [
+        {
+          "id": "ht1",
+          "type": "poll",
+          "question": "Which is the best pizza topping?",
+          "answers": [
+            "Pepperoni",
+            "Pineapple",
+            "Mushrooms",
+            "Extra Cheese"
+          ],
+          "time_limit": 15
+        },
+        {
+          "id": "ht2",
+          "type": "poll",
+          "question": "Would you rather have unlimited money or unlimited time?",
+          "answers": [
+            "Unlimited Money",
+            "Unlimited Time"
+          ],
+          "time_limit": 15
+        }
+      ]
+    },
+    "english": {
+      "name": "English",
+      "questions": []
+    }
+  }
+}
