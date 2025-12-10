@@ -671,7 +671,7 @@ def check_answer(question: dict, player_answer, correct_answer) -> bool:
     """Check if an answer is correct based on question type"""
     q_type = question.get("type", "choice")
     
-    if q_type == "poll":
+    if q_type in ["poll", "open_poll"]:
         return True  # Polls have no wrong answers
     elif q_type == "truefalse":
         return player_answer == correct_answer
