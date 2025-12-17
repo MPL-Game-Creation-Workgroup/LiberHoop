@@ -2297,7 +2297,8 @@ app.mount("/", StaticFiles(directory="static", html=True), name="static")
 if __name__ == "__main__":
     import uvicorn
     print("\n🎮 Library Quiz Game Starting...")
+    print("🏠 Launch page: http://localhost:8000")
     print("📺 Host display: http://localhost:8000/host.html")
-    print("👤 Players join: http://localhost:8000")
+    print("👤 Players join: http://localhost:8000/player.html")
     print("⚙️  Admin panel: http://localhost:8000/admin.html\n")
     uvicorn.run(app, host="0.0.0.0", port=8000)

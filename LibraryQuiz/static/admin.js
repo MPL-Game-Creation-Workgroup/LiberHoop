@@ -40,7 +40,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkAuthMode() {
     try {
-        const response = await fetch('/api/admin/auth-mode');
+        const response = await fetch('/api/admin/auth-mode', {
+            signal: AbortSignal.timeout(5000)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Server responded with status ${response.status}`);
+        }
+        
         const data = await response.json();
         authMode = data.mode;
         
@@ -58,6 +65,11 @@ async function checkAuthMode() {
         }
     } catch (err) {
         console.error('Failed to check auth mode:', err);
+        // Show error notification if service is unreachable
+        if (err.name === 'AbortError' || err.name === 'TimeoutError' || 
+            err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+            showServerError('The game may be temporarily unavailable due to maintenance.');
+        }
     }
 }
 
@@ -135,6 +147,49 @@ function setupEventListeners() {
     });
 }
 
+// ─────────────────────────── Error Handling ─────────────────────────── #
+
+function showServerError(message) {
+    // Create or update error notification
+    let notification = document.getElementById('serverErrorNotification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'serverErrorNotification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #d63031, #c0392b);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(214, 48, 49, 0.5);
+            z-index: 10000;
+            max-width: 400px;
+            animation: slideIn 0.3s ease;
+        `;
+        document.body.appendChild(notification);
+    }
+    
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <span style="font-size: 1.5rem;">⚠️</span>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; margin-bottom: 0.25rem;">Connection Error</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">${message}</div>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; line-height: 1;">×</button>
+        </div>
+    `;
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => {
+        if (notification && notification.parentElement) {
+            notification.remove();
+        }
+    }, 10000);
+}
+
 // ─────────────────────────── Authentication ─────────────────────────── #
 
 async function login() {
@@ -145,10 +200,23 @@ async function login() {
     errorEl.textContent = '';
     
     try {
+        // Check service connectivity first
+        try {
+            await fetch('/api/ip', {
+                method: 'GET',
+                signal: AbortSignal.timeout(3000)
+            });
+        } catch (checkErr) {
+            errorEl.textContent = 'The game may be temporarily unavailable due to maintenance.';
+            showServerError('The game may be temporarily unavailable due to maintenance.');
+            return;
+        }
+        
         const response = await fetch('/api/admin/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password }),
+            signal: AbortSignal.timeout(10000)
         });
         
         if (response.ok) {
@@ -158,12 +226,23 @@ async function login() {
             localStorage.setItem('adminToken', adminToken);
             showAdminPanel();
         } else {
-            const err = await response.json();
-            errorEl.textContent = err.detail || 'Login failed';
+            const err = await response.json().catch(() => ({}));
+            if (response.status === 0 || response.status >= 500) {
+                errorEl.textContent = 'Service temporarily unavailable or down for maintenance. Please try again later.';
+            } else {
+                errorEl.textContent = err.detail || 'Login failed. Please check your credentials.';
+            }
         }
     } catch (err) {
-        errorEl.textContent = 'Connection error';
-        console.error(err);
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+            errorEl.textContent = 'Connection timeout. Please check your internet connection and try again.';
+        } else if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+            errorEl.textContent = 'The game may be temporarily unavailable due to maintenance.';
+            showServerError('The game may be temporarily unavailable due to maintenance.');
+        } else {
+            errorEl.textContent = `Unable to connect. Please try again later.`;
+        }
+        console.error('Login error:', err);
     }
 }
 
@@ -178,10 +257,23 @@ async function signup() {
     successEl.style.display = 'none';
     
     try {
+        // Check service connectivity first
+        try {
+            await fetch('/api/ip', {
+                method: 'GET',
+                signal: AbortSignal.timeout(3000)
+            });
+        } catch (checkErr) {
+            errorEl.textContent = 'The game may be temporarily unavailable due to maintenance.';
+            showServerError('The game may be temporarily unavailable due to maintenance.');
+            return;
+        }
+        
         const response = await fetch('/api/admin/signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, username, password })
+            body: JSON.stringify({ name, username, password }),
+            signal: AbortSignal.timeout(10000)
         });
         
         if (response.ok) {
@@ -196,19 +288,31 @@ async function signup() {
                 document.getElementById('loginUsername').value = username;
             }, 2000);
         } else {
-            const err = await response.json();
-            errorEl.textContent = err.detail || 'Signup failed';
+            const err = await response.json().catch(() => ({}));
+            if (response.status === 0 || response.status >= 500) {
+                errorEl.textContent = 'Service temporarily unavailable or down for maintenance. Please try again later.';
+            } else {
+                errorEl.textContent = err.detail || 'Signup failed. Please check your input and try again.';
+            }
         }
     } catch (err) {
-        errorEl.textContent = 'Connection error';
-        console.error(err);
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+            errorEl.textContent = 'Connection timeout. Please check your internet connection and try again.';
+        } else if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+            errorEl.textContent = 'The game may be temporarily unavailable due to maintenance.';
+            showServerError('The game may be temporarily unavailable due to maintenance.');
+        } else {
+            errorEl.textContent = `Unable to connect. Please try again later.`;
+        }
+        console.error('Signup error:', err);
     }
 }
 
 async function checkAuth() {
     try {
         const response = await fetch('/api/admin/me', {
-            headers: { 'X-Admin-Token': adminToken }
+            headers: { 'X-Admin-Token': adminToken },
+            signal: AbortSignal.timeout(5000)
         });
         
         if (response.ok) {
@@ -219,6 +323,10 @@ async function checkAuth() {
             logout();
         }
     } catch (err) {
+        if (err.name === 'AbortError' || err.name === 'TimeoutError' || 
+            err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+            showServerError('The game may be temporarily unavailable due to maintenance.');
+        }
         logout();
     }
 }

@@ -67,15 +67,40 @@ document.getElementById('joinForm').addEventListener('submit', async (e) => {
     }
     
     try {
+        // Check service connectivity first
+        let serverCheck;
+        try {
+            serverCheck = await fetch('/api/ip', {
+                method: 'GET',
+                signal: AbortSignal.timeout(5000)
+            });
+        } catch (checkErr) {
+            errorMsg.textContent = 'Unable to connect. Please check your internet connection and try again.';
+            console.error('Service check failed:', checkErr);
+            return;
+        }
+        
+        if (!serverCheck.ok) {
+            errorMsg.textContent = 'Service temporarily unavailable or down for maintenance. Please try again later.';
+            return;
+        }
+        
         const response = await fetch(`/api/room/${roomCode}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: playerName })
+            body: JSON.stringify({ name: playerName }),
+            signal: AbortSignal.timeout(10000) // 10 second timeout
         });
         
         if (!response.ok) {
-            const data = await response.json();
-            errorMsg.textContent = data.detail || 'Could not join room';
+            const data = await response.json().catch(() => ({}));
+            if (response.status === 404) {
+                errorMsg.textContent = `Room "${roomCode}" not found. Please check the room code and try again.`;
+            } else if (response.status === 0 || response.status >= 500) {
+                errorMsg.textContent = 'Service temporarily unavailable or down for maintenance. Please try again later.';
+            } else {
+                errorMsg.textContent = data.detail || 'Could not join room. Please check the room code and try again.';
+            }
             return;
         }
         
@@ -94,8 +119,14 @@ document.getElementById('joinForm').addEventListener('submit', async (e) => {
         connectWebSocket();
         
     } catch (err) {
-        errorMsg.textContent = 'Connection error. Please try again.';
-        console.error(err);
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+            errorMsg.textContent = 'Connection timeout. Please check your internet connection and try again.';
+        } else if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+            errorMsg.textContent = 'The game may be temporarily unavailable due to maintenance.';
+        } else {
+            errorMsg.textContent = `Unable to connect. Please try again later.`;
+        }
+        console.error('Join error:', err);
     }
 });
 
@@ -106,38 +137,66 @@ document.getElementById('roomCode').addEventListener('input', (e) => {
 
 // ─────────────────────────── WebSocket ─────────────────────────── #
 
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/play/${state.roomCode}/${state.playerId}`;
     
-    state.ws = new WebSocket(wsUrl);
-    
-    state.ws.onopen = () => {
-        console.log('Connected to game');
-        hideHostDisconnected();  // Clear any disconnection overlay
-    };
-    
-    state.ws.onclose = (event) => {
-        console.log('Disconnected:', event.code);
-        // Attempt to reconnect after 2 seconds (unless kicked or room closed)
-        if (event.code !== 1000 && state.playerId) {
-            console.log('Attempting to reconnect in 2s...');
-            setTimeout(() => {
-                if (state.playerId) {
-                    connectWebSocket();
-                }
-            }, 2000);
-        }
-    };
-    
-    state.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-    };
-    
-    state.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleMessage(data);
-    };
+    try {
+        state.ws = new WebSocket(wsUrl);
+        
+        state.ws.onopen = () => {
+            console.log('Connected to game');
+            reconnectAttempts = 0; // Reset on successful connection
+            hideHostDisconnected();  // Clear any disconnection overlay
+        };
+        
+        state.ws.onclose = (event) => {
+            console.log('Disconnected:', event.code, event.reason);
+            
+            // Show error for specific close codes
+            if (event.code === 1006) {
+                // Abnormal closure (service crash, network issue)
+                showHostDisconnected('Connection lost. Attempting to reconnect...');
+            } else if (event.code === 1002) {
+                showHostDisconnected('Connection error. Please refresh the page and try again.');
+            } else if (event.code === 1003) {
+                showHostDisconnected('Connection error. Please refresh the page.');
+            }
+            
+            // Attempt to reconnect after 2 seconds (unless kicked or room closed)
+            if (event.code !== 1000 && state.playerId && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                reconnectAttempts++;
+                console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+                setTimeout(() => {
+                    if (state.playerId) {
+                        connectWebSocket();
+                    }
+                }, 2000);
+            } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                showHostDisconnected('Unable to reconnect. Please refresh the page and try again.');
+            }
+        };
+        
+        state.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            showHostDisconnected('Connection error. Please check your internet connection.');
+        };
+        
+        state.ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            } catch (parseError) {
+                console.error('Error parsing WebSocket message:', parseError);
+            }
+        };
+    } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+        showHostDisconnected('Unable to connect. Please check your internet connection and try again.');
+    }
 }
 
 function handleMessage(data) {
@@ -320,21 +379,24 @@ function handleMessage(data) {
 
 // ─────────────────────────── Host Disconnection UI ─────────────────────────── #
 
-function showHostDisconnected() {
+function showHostDisconnected(customMessage = null) {
     let overlay = document.getElementById('hostDisconnectedOverlay');
     if (!overlay) {
         overlay = document.createElement('div');
         overlay.id = 'hostDisconnectedOverlay';
         overlay.className = 'host-disconnected-overlay';
-        overlay.innerHTML = `
-            <div class="host-disconnected-content">
-                <div class="spinner"></div>
-                <p>⚠️ Host Disconnected</p>
-                <p class="subtext">Waiting for host to reconnect...</p>
-            </div>
-        `;
         document.body.appendChild(overlay);
     }
+    
+    const message = customMessage || 'Waiting for host to reconnect...';
+    overlay.innerHTML = `
+        <div class="host-disconnected-content">
+            <div class="spinner"></div>
+            <p>⚠️ Connection Issue</p>
+            <p class="subtext">${message}</p>
+            <button class="retry-btn" onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1.5rem; background: var(--primary); color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: 600;">Refresh Page</button>
+        </div>
+    `;
     overlay.classList.add('visible');
 }
 

@@ -2,243 +2,285 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
-    <title>Join Quiz - Library Quiz Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiberHoop - Interactive Quiz Game Platform</title>
+    <meta name="description" content="Kahoot + Jackbox for library quizzes. A free, open-source, real-time interactive quiz game platform for libraries, schools, and community events.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="player.css">
+    <link rel="stylesheet" href="launch.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Join Screen -->
-        <div id="joinScreen" class="screen active">
-            <div class="logo-section">
-                <div class="logo">📚</div>
-                <h1>LIBRARY QUIZ</h1>
-            </div>
-            
-            <form id="joinForm" class="join-form">
-                <div class="input-group">
-                    <label for="roomCode">ROOM CODE</label>
-                    <input 
-                        type="text" 
-                        id="roomCode" 
-                        placeholder="ABCD" 
-                        maxlength="4" 
-                        autocomplete="off"
-                        autocapitalize="characters"
-                        required
-                    >
-                </div>
-                
-                <div class="input-group">
-                    <label for="playerName">YOUR NAME</label>
-                    <input 
-                        type="text" 
-                        id="playerName" 
-                        placeholder="Enter your name" 
-                        maxlength="20"
-                        autocomplete="off"
-                        required
-                    >
-                </div>
-                
-                <button type="submit" class="join-btn">
-                    JOIN GAME
-                </button>
-                
-                <p class="error-msg" id="errorMsg"></p>
-            </form>
+    <!-- Error Notification -->
+    <div id="errorNotification" class="error-notification hidden">
+        <span class="error-icon">⚠️</span>
+        <div>
+            <div class="error-message" id="errorMessage">Service temporarily unavailable or down for maintenance</div>
+            <div class="error-details" id="errorDetails"></div>
         </div>
-
-        <!-- Lobby Screen -->
-        <div id="lobbyScreen" class="screen">
-            <div class="lobby-header">
-                <span class="room-label">ROOM</span>
-                <span class="room-code" id="lobbyRoomCode">ABCD</span>
-            </div>
-            
-            <div class="player-info">
-                <div class="player-avatar" id="playerAvatar">😎</div>
-                <h2 id="playerNameDisplay">Player</h2>
-                <!-- Team badge added dynamically when assigned -->
-            </div>
-            
-            <div class="waiting-indicator">
-                <div class="dots">
-                    <span></span><span></span><span></span>
-                </div>
-                <p>Waiting for host to start...</p>
-            </div>
-            
-            <!-- Minigame Selection -->
-            <div class="lobby-minigames">
-                <h3>🎮 Play a Minigame</h3>
-                <div class="minigame-buttons">
-                    <button class="minigame-option-btn" data-type="draw_freestyle">
-                        🎨 Free Draw
-                    </button>
-                    <button class="minigame-option-btn" data-type="draw_prompt">
-                        ✏️ Draw Prompt
-                    </button>
-                    <button class="minigame-option-btn" data-type="microgame">
-                        ⚡ Microgame
-                    </button>
-                </div>
-                <div class="minigame-prompt-input hidden" id="lobbyPromptInput">
-                    <input type="text" id="lobbyMinigamePrompt" placeholder="Enter a prompt to draw..." maxlength="50">
-                </div>
-            </div>
-        </div>
-
-        <!-- Question Screen -->
-        <div id="questionScreen" class="screen">
-            <div class="question-header">
-                <span class="q-number" id="questionNumber">1/10</span>
-                <div class="timer" id="timer">
-                    <div class="timer-bar" id="timerBar"></div>
-                    <span id="timerText">15</span>
-                </div>
-            </div>
-            
-            <div class="question-text" id="questionText">
-                What is the question?
-            </div>
-            
-            <!-- Classic mode: answer buttons -->
-            <div class="answers" id="answersContainer">
-                <!-- Answer buttons generated by JS -->
-            </div>
-            
-            <!-- Bowl mode: buzz and answer UI -->
-            <div class="bowl-player-ui hidden" id="bowlPlayerUI">
-                <!-- Buzz button -->
-                <div class="buzz-container" id="buzzContainer">
-                    <button class="buzz-btn" id="buzzBtn">
-                        <span class="buzz-icon">🔔</span>
-                        <span class="buzz-text">BUZZ!</span>
-                    </button>
-                </div>
-                
-                <!-- Answer input (shown after winning buzz) -->
-                <div class="bowl-answer-input hidden" id="bowlAnswerInput">
-                    <p class="bowl-prompt">You buzzed first! Type your answer:</p>
-                    <input type="text" id="bowlAnswerText" placeholder="Type your answer..." autocomplete="off" maxlength="100">
-                    <button class="bowl-submit-btn" id="bowlSubmitBtn">SUBMIT</button>
-                </div>
-                
-                <!-- Waiting state (shown when someone else buzzed) -->
-                <div class="bowl-waiting-state hidden" id="bowlWaitingState">
-                    <p class="bowl-wait-text" id="bowlWaitText">Waiting...</p>
-                </div>
-                
-                <!-- Steal button (shown during steal phase) -->
-                <div class="steal-container hidden" id="stealContainer">
-                    <button class="steal-btn" id="stealBtn">
-                        <span class="steal-icon">⚡</span>
-                        <span class="steal-text">STEAL!</span>
-                    </button>
-                </div>
-                
-                <!-- Not eligible for steal -->
-                <div class="steal-ineligible hidden" id="stealIneligible">
-                    <p>Your team already attempted this question</p>
-                </div>
-            </div>
-            
-            <div class="answered-overlay" id="answeredOverlay">
-                <div class="checkmark">✓</div>
-                <p>Answer locked in!</p>
-            </div>
-        </div>
-
-        <!-- Results Screen -->
-        <div id="resultsScreen" class="screen">
-            <div class="result-header" id="resultHeader">
-                <!-- Dynamic: correct/incorrect -->
-            </div>
-            
-            <div class="points-display" id="pointsDisplay">
-                <!-- Dynamic: points earned -->
-            </div>
-            
-            <div class="streak-display" id="streakDisplay">
-                <!-- Dynamic: streak info -->
-            </div>
-            
-            <div class="your-rank">
-                <span class="rank-label">YOUR POSITION</span>
-                <span class="rank-number" id="yourRank">#1</span>
-            </div>
-        </div>
-
-        <!-- Game Over Screen -->
-        <div id="gameOverScreen" class="screen">
-            <h1 class="game-over-title">GAME OVER</h1>
-            
-            <div class="final-score">
-                <span class="score-label">YOUR SCORE</span>
-                <span class="score-value" id="finalScore">0</span>
-            </div>
-            
-            <div class="final-rank">
-                <span class="rank-label">FINAL RANK</span>
-                <span class="rank-value" id="finalRank">#1</span>
-            </div>
-            
-            <button class="play-again-btn" onclick="location.reload()">
-                PLAY AGAIN
-            </button>
-        </div>
-
-        <!-- Kicked Screen -->
-        <div id="kickedScreen" class="screen">
-            <div class="kicked-icon">🚫</div>
-            <h2>You've been removed</h2>
-            <p>The host has removed you from the game.</p>
-            <button class="play-again-btn" onclick="location.reload()">
-                TRY AGAIN
-            </button>
-        </div>
-
-        <!-- Minigame Screen -->
-        <div id="minigameScreen" class="screen">
-            <div class="minigame-header">
-                <h2 id="minigameTitle">🎨 MINIGAME</h2>
-                <p id="minigamePrompt" class="minigame-prompt"></p>
-                <div class="minigame-timer" id="minigameTimer"></div>
-            </div>
-            
-            <div class="minigame-content">
-                <!-- Drawing Canvas -->
-                <div class="drawing-container" id="drawingContainer">
-                    <canvas id="drawingCanvas"></canvas>
-                </div>
-                
-                <!-- Drawing Controls -->
-                <div class="drawing-controls" id="drawingControls">
-                    <div class="color-picker">
-                        <label>Color:</label>
-                        <input type="color" id="colorPicker" value="#000000">
-                    </div>
-                    <div class="brush-size">
-                        <label>Size:</label>
-                        <input type="range" id="brushSize" min="2" max="20" value="5">
-                        <span id="brushSizeValue">5</span>
-                    </div>
-                    <button class="clear-btn" id="clearCanvasBtn">Clear</button>
-                    <button class="submit-minigame-btn" id="submitMinigameBtn">Submit</button>
-                </div>
-                
-                <!-- Microgame UI -->
-                <div class="microgame-ui" id="microgameUI" style="display: none;">
-                    <!-- Content generated dynamically -->
-                </div>
-            </div>
-        </div>
+        <button class="close-btn" onclick="hideError()">×</button>
     </div>
 
-    <script src="player.js"></script>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="logo-large">📚</div>
+            <h1>LiberHoop</h1>
+            <p class="tagline">Kahoot + Jackbox for Library Quizzes</p>
+            <p class="description">
+                A real-time, interactive quiz game platform designed for library events, teen programs, and educational gatherings. 
+                Free, open source, and privacy-focused.
+            </p>
+            <div class="cta-buttons">
+                <a href="player.html" class="btn btn-primary">Join a Game</a>
+                <a href="admin.html" class="btn btn-admin">Admin Login</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works">
+        <h2 class="section-title">How It Works</h2>
+        <div class="how-it-works">
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Host Creates a Room</h3>
+                    <p>Admins log in and create a game session with a unique room code. Choose game modes, question categories, and settings.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Players Join</h3>
+                    <p>Players visit the site on their mobile devices or browsers, enter the room code, and join the game instantly. No accounts needed!</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Play & Compete</h3>
+                    <p>Answer questions in real-time, compete for points, and see live leaderboards. Play minigames while waiting between rounds.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Celebrate Winners</h3>
+                    <p>View final scores and celebrate the winners! Perfect for engaging library events and educational gatherings.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section id="benefits">
+        <h2 class="section-title">Why LiberHoop?</h2>
+        <div class="benefits">
+            <div class="benefit-card">
+                <div class="benefit-icon">🆓</div>
+                <h3>Completely Free</h3>
+                <p>No subscriptions, no hidden fees, no student data tracking. LiberHoop is open source and free for educators and libraries.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">🔒</div>
+                <h3>Privacy-Focused</h3>
+                <p>We don't collect or store student data. Players join with just a name - no accounts, no tracking, just fun gameplay.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">⚡</div>
+                <h3>Real-Time Action</h3>
+                <p>WebSocket-powered real-time gameplay ensures instant updates, live leaderboards, and seamless multiplayer experience.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">🎮</div>
+                <h3>Multiple Game Modes</h3>
+                <p>Classic quiz mode for fast-paced competition, or Bowl mode for strategic quiz bowl-style gameplay with buzzing and stealing.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">📱</div>
+                <h3>Mobile-Friendly</h3>
+                <p>Players use their own devices - phones, tablets, or laptops. No special apps needed, just a web browser.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">🎨</div>
+                <h3>Engaging Minigames</h3>
+                <p>Keep players entertained with drawing games and microgames while waiting for the next question to start.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features">
+        <h2 class="section-title">Key Features</h2>
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">🎯</div>
+                <div class="feature-content">
+                    <h4>Multiple Question Types</h4>
+                    <p>Multiple choice, true/false, text input, number input, polls, and wager questions for diverse gameplay.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">👥</div>
+                <div class="feature-content">
+                    <h4>Team Support</h4>
+                    <p>Optional team mode with drag-and-drop team assignment. Perfect for group activities and collaborative learning.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <div class="feature-content">
+                    <h4>Live Leaderboards</h4>
+                    <p>Real-time score tracking and leaderboards keep the competition exciting and engaging throughout the game.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⚙️</div>
+                <div class="feature-content">
+                    <h4>Easy Question Management</h4>
+                    <p>Admin panel for creating, organizing, and managing questions by categories. Export and import for sharing.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🌐</div>
+                <div class="feature-content">
+                    <h4>Flexible Deployment</h4>
+                    <p>Run on local networks, Raspberry Pi, or with Cloudflare Tunnel for public access. No complex setup required.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🔧</div>
+                <div class="feature-content">
+                    <h4>Open Source</h4>
+                    <p>Built by the community, for the community. Contribute features, translations, or improvements to make it better.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Admin Section -->
+    <section id="admin">
+        <div class="admin-section">
+            <h2>For Administrators</h2>
+            <p>Manage questions, create game sessions, and host engaging quiz events for your library or organization.</p>
+            <a href="admin.html" class="btn btn-admin">Admin Login</a>
+        </div>
+    </section>
+
+    <!-- Donation Section -->
+    <section id="donate">
+        <div class="donation-section">
+            <div class="donation-icon">☕</div>
+            <h2>Enjoying LiberHoop?</h2>
+            <p>If you find this project useful and would like to support its development, consider making a donation. Every contribution helps keep LiberHoop free and open source!</p>
+            <p class="donation-note">Donations are completely optional - the game is and always will be free to use.</p>
+            <div class="donation-buttons">
+                <a href="https://ko-fi.com/concreterose" class="btn btn-donate" target="_blank" rel="noopener noreferrer">
+                    ☕ Buy me a coffee
+                </a>
+                <a href="https://cash.app/$datkod" class="btn btn-donate" target="_blank" rel="noopener noreferrer">
+                    💵 Donate via CashApp
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p><strong>LiberHoop</strong> - Free, Open Source, Privacy-Focused</p>
+        <p>Designed for libraries, schools, and community events</p>
+        <p>
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer">View on GitHub</a> | 
+            <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a>
+        </p>
+    </footer>
+
+    <script>
+        // Server connectivity check
+        let serverCheckInterval = null;
+        let lastServerStatus = null;
+
+        async function checkServerStatus() {
+            try {
+                // Try to fetch a simple endpoint or check WebSocket
+                const response = await fetch('/api/ip', {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000) // 3 second timeout
+                });
+                
+                if (response.ok) {
+                    if (lastServerStatus !== 'online') {
+                        hideError();
+                        lastServerStatus = 'online';
+                    }
+                    return true;
+                } else {
+                    showError('Service temporarily unavailable', 'Please try again later.');
+                    lastServerStatus = 'error';
+                    return false;
+                }
+            } catch (error) {
+                if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+                    showError('Connection timeout', 'The service is taking too long to respond. Please check your internet connection and try again.');
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    showError('Unable to connect', 'The game may be temporarily unavailable due to maintenance.');
+                } else {
+                    showError('Connection issue', 'Unable to connect right now. Please try again later.');
+                }
+                lastServerStatus = 'offline';
+                return false;
+            }
+        }
+
+        function showError(message, details = '') {
+            const notification = document.getElementById('errorNotification');
+            const messageEl = document.getElementById('errorMessage');
+            const detailsEl = document.getElementById('errorDetails');
+            
+            messageEl.textContent = message;
+            if (details) {
+                detailsEl.textContent = details;
+                detailsEl.style.display = 'block';
+            } else {
+                detailsEl.style.display = 'none';
+            }
+            
+            notification.classList.remove('hidden');
+            notification.classList.remove('warning', 'info');
+            notification.classList.add('error');
+        }
+
+        function hideError() {
+            const notification = document.getElementById('errorNotification');
+            notification.classList.add('hidden');
+        }
+
+        // Check server status on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial check
+            checkServerStatus();
+            
+            // Check every 30 seconds
+            serverCheckInterval = setInterval(checkServerStatus, 30000);
+            
+            // Also check when user tries to navigate
+            document.querySelectorAll('a[href]').forEach(link => {
+                link.addEventListener('click', async (e) => {
+                    // Only check for internal links
+                    if (link.href.includes(window.location.hostname) || 
+                        link.getAttribute('href').startsWith('/') ||
+                        !link.getAttribute('href').startsWith('http')) {
+                        const isOnline = await checkServerStatus();
+                        if (!isOnline) {
+                            e.preventDefault();
+                            // Show error is already handled by checkServerStatus
+                        }
+                    }
+                });
+            });
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (serverCheckInterval) {
+                clearInterval(serverCheckInterval);
+            }
+        });
+    </script>
 </body>
 </html>
