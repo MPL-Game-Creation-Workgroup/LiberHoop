@@ -342,6 +342,91 @@ section {
     font-size: 1.1rem;
 }
 
+/* ─────────────────────────── Self-Hosting Section ─────────────────────────── */
+
+.self-host-section {
+    background: rgba(0, 206, 201, 0.1);
+    border-radius: 20px;
+    padding: 3rem;
+    text-align: center;
+    margin: 3rem auto;
+    max-width: 700px;
+    border: 2px solid var(--secondary);
+}
+
+.self-host-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    animation: bounce 2s ease-in-out infinite;
+}
+
+.self-host-section h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--text);
+    background: linear-gradient(135deg, var(--secondary), #00a085);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.self-host-section > p {
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.8;
+    font-size: 1.1rem;
+}
+
+.self-host-benefits {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+    text-align: left;
+}
+
+.self-host-benefit {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.benefit-check {
+    background: linear-gradient(135deg, var(--success), #00a085);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+}
+
+.self-host-note {
+    font-size: 0.95rem;
+    font-style: italic;
+    opacity: 0.8;
+    margin-top: 1rem;
+    color: var(--text-muted);
+}
+
+.btn-github {
+    background: linear-gradient(135deg, #24292e, #1a1e22);
+    color: white;
+    box-shadow: 0 10px 30px rgba(36, 41, 46, 0.4);
+    margin-top: 1.5rem;
+}
+
+.btn-github:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(36, 41, 46, 0.6);
+}
+
 /* ─────────────────────────── Donation Section ─────────────────────────── */
 
 .donation-section {
@@ -549,6 +634,14 @@ section {
         max-width: 300px;
     }
     
+    .self-host-section {
+        padding: 2rem 1.5rem;
+    }
+    
+    .self-host-benefits {
+        grid-template-columns: 1fr;
+    }
+    
     .donation-section {
         padding: 2rem 1.5rem;
     }
@@ -558,7 +651,8 @@ section {
         align-items: center;
     }
     
-    .btn-donate {
+    .btn-donate,
+    .btn-github {
         width: 100%;
         max-width: 300px;
     }
