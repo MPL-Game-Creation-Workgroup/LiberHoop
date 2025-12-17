@@ -28,6 +28,11 @@ const TYPE_LABELS = {
 
 // Helper function to get the API base URL
 function getApiUrl(path) {
+    // Check if we're opening from file:// protocol (not served by a web server)
+    if (window.location.protocol === 'file:') {
+        throw new Error('Cannot make API calls from file:// protocol. Please access the admin panel through a web server (http:// or https://).');
+    }
+    
     // Remove leading slash if present to avoid double slashes
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     
@@ -43,37 +48,60 @@ function getApiUrl(path) {
 // Load server URL from localStorage or detect if we're on the same server
 function loadServerUrl() {
     const serverUrlInput = document.getElementById('serverUrl');
-    if (!serverUrlInput) return;
+    if (!serverUrlInput) {
+        // Field might not be visible yet (before login)
+        return;
+    }
     
     // Check if we're on GitHub Pages or a different origin
     const isGitHubPages = window.location.hostname.includes('github.io') || 
                           window.location.hostname.includes('github.com');
     
     if (isGitHubPages) {
-        // On GitHub Pages - load saved server URL or show input
+        // On GitHub Pages - load saved server URL
         const savedUrl = localStorage.getItem('liberHoopServerUrl');
         if (savedUrl) {
             serverBaseUrl = savedUrl;
             serverUrlInput.value = savedUrl;
         }
-        // Field is already visible in HTML
     } else {
-        // On the actual server - use same origin (empty string = relative paths)
-        serverBaseUrl = '';
-        // Hide the server URL input since we're on the server itself
-        const serverUrlGroup = serverUrlInput.closest('.form-group');
-        if (serverUrlGroup) {
-            serverUrlGroup.style.display = 'none';
+        // On the actual server - check if we have a saved URL, otherwise use same origin
+        const savedUrl = localStorage.getItem('liberHoopServerUrl');
+        if (savedUrl) {
+            serverBaseUrl = savedUrl;
+            serverUrlInput.value = savedUrl;
+        } else {
+            // Default to same origin (empty string = relative paths)
+            serverBaseUrl = '';
+            serverUrlInput.value = window.location.origin;
         }
     }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Check if opened via file:// protocol
+    if (window.location.protocol === 'file:') {
+        const errorMsg = document.getElementById('loginError') || document.createElement('div');
+        errorMsg.textContent = '⚠️ This page must be accessed through a web server (http:// or https://), not by opening the file directly. Please use your LiberHoop server URL or GitHub Pages.';
+        errorMsg.style.cssText = 'color: #d63031; font-weight: 600; padding: 1rem; background: rgba(214, 48, 49, 0.1); border-radius: 8px; margin: 1rem 0;';
+        if (document.getElementById('loginScreen')) {
+            const loginBox = document.querySelector('.login-box');
+            if (loginBox && !loginBox.querySelector('.file-protocol-error')) {
+                errorMsg.className = 'file-protocol-error';
+                loginBox.insertBefore(errorMsg, loginBox.firstChild);
+            }
+        }
+        return;
+    }
+    
     // Load server URL configuration
     loadServerUrl();
     
-    // Check authentication mode (only if we have a server URL or are on the server)
-    if (serverBaseUrl || !window.location.hostname.includes('github')) {
+    // Check authentication mode (only if we have a server URL or are NOT on GitHub Pages)
+    const isGitHubPages = window.location.hostname.includes('github.io') || 
+                          window.location.hostname.includes('github.com');
+    
+    if (serverBaseUrl || !isGitHubPages) {
         await checkAuthMode();
         
         // Check for saved token
@@ -113,6 +141,10 @@ async function checkAuthMode() {
         }
     } catch (err) {
         console.error('Failed to check auth mode:', err);
+        // Don't show error if it's a file:// protocol issue (already handled)
+        if (err.message && err.message.includes('file://')) {
+            return; // Error already shown in DOMContentLoaded
+        }
         // Show error notification if service is unreachable
         if (err.name === 'AbortError' || err.name === 'TimeoutError' || 
             err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
@@ -132,51 +164,15 @@ function showLoginForm() {
 }
 
 function setupEventListeners() {
-    // Server URL input - save when changed
-    const serverUrlInput = document.getElementById('serverUrl');
-    if (serverUrlInput) {
-        serverUrlInput.addEventListener('change', (e) => {
-            const url = e.target.value.trim();
-            if (url) {
-                // Remove trailing slash
-                serverBaseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-                localStorage.setItem('liberHoopServerUrl', serverBaseUrl);
-            }
-        });
-        
-        serverUrlInput.addEventListener('blur', (e) => {
-            const url = e.target.value.trim();
-            if (url) {
-                // Remove trailing slash
-                serverBaseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-                localStorage.setItem('liberHoopServerUrl', serverBaseUrl);
-            }
-        });
-    }
-    
-    // Login form
+    // Login form - no server URL required for login
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        // Save server URL before login
-        const urlInput = document.getElementById('serverUrl');
-        if (urlInput && urlInput.value.trim()) {
-            const url = urlInput.value.trim();
-            serverBaseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-            localStorage.setItem('liberHoopServerUrl', serverBaseUrl);
-        }
         await login();
     });
     
-    // Signup form
+    // Signup form - no server URL required for signup
     document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        // Save server URL before signup
-        const urlInput = document.getElementById('serverUrl');
-        if (urlInput && urlInput.value.trim()) {
-            const url = urlInput.value.trim();
-            serverBaseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-            localStorage.setItem('liberHoopServerUrl', serverBaseUrl);
-        }
         await signup();
     });
     
@@ -284,19 +280,45 @@ async function login() {
     errorEl.textContent = '';
     
     try {
-        // Check service connectivity first
-        try {
-            await fetch(getApiUrl('/api/ip'), {
-                method: 'GET',
-                signal: AbortSignal.timeout(3000)
-            });
-        } catch (checkErr) {
-            errorEl.textContent = 'The game may be temporarily unavailable due to maintenance.';
-            showServerError('The game may be temporarily unavailable due to maintenance.');
-            return;
+        // Use saved server URL if available, otherwise use same origin
+        const savedUrl = localStorage.getItem('liberHoopServerUrl');
+        const isGitHubPages = window.location.hostname.includes('github.io') || 
+                              window.location.hostname.includes('github.com');
+        
+        if (savedUrl) {
+            serverBaseUrl = savedUrl.endsWith('/') ? savedUrl.slice(0, -1) : savedUrl;
+        } else {
+            // If on GitHub Pages without a server URL, we can't log in
+            if (isGitHubPages) {
+                errorEl.textContent = 'Please access the admin panel from your LiberHoop server URL, or set the server URL after logging in.';
+                return;
+            }
+            serverBaseUrl = ''; // Same origin - try to log in to current server
         }
         
-        const response = await fetch(getApiUrl('/api/admin/login'), {
+        // Check service connectivity first (only if we have a server URL set)
+        if (serverBaseUrl) {
+            try {
+                const checkUrl = getApiUrl('/api/ip');
+                console.log('Checking server connectivity:', checkUrl);
+                const checkResponse = await fetch(checkUrl, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000)
+                });
+                if (!checkResponse.ok) {
+                    throw new Error(`Server responded with status ${checkResponse.status}`);
+                }
+            } catch (checkErr) {
+                console.error('Server connectivity check failed:', checkErr);
+                errorEl.textContent = `Cannot connect to server at ${serverBaseUrl}. Please check the URL and ensure the server is running.`;
+                showServerError(`Cannot connect to server. Please verify the server URL is correct.`);
+                return;
+            }
+        }
+        
+        const loginUrl = getApiUrl('/api/admin/login');
+        console.log('Attempting login to:', loginUrl);
+        const response = await fetch(loginUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
@@ -308,25 +330,31 @@ async function login() {
             adminToken = data.token;
             adminName = data.name;
             localStorage.setItem('adminToken', adminToken);
+            console.log('Login successful');
             showAdminPanel();
         } else {
             const err = await response.json().catch(() => ({}));
+            console.error('Login failed:', response.status, err);
             if (response.status === 0 || response.status >= 500) {
                 errorEl.textContent = 'Service temporarily unavailable or down for maintenance. Please try again later.';
+            } else if (response.status === 401) {
+                errorEl.textContent = err.detail || 'Invalid username or password. Please check your credentials.';
+            } else if (response.status === 404) {
+                errorEl.textContent = `Server not found at ${serverBaseUrl}. Please check the URL.`;
             } else {
                 errorEl.textContent = err.detail || 'Login failed. Please check your credentials.';
             }
         }
     } catch (err) {
+        console.error('Login error:', err);
         if (err.name === 'AbortError' || err.name === 'TimeoutError') {
             errorEl.textContent = 'Connection timeout. Please check your internet connection and try again.';
-        } else if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-            errorEl.textContent = 'The game may be temporarily unavailable due to maintenance.';
-            showServerError('The game may be temporarily unavailable due to maintenance.');
+        } else if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('CORS'))) {
+            errorEl.textContent = `Cannot connect to ${serverBaseUrl}. This may be a CORS issue or the server may be offline.`;
+            showServerError(`Cannot connect to server. Check the server URL and ensure CORS is enabled on the server.`);
         } else {
-            errorEl.textContent = `Unable to connect. Please try again later.`;
+            errorEl.textContent = `Connection error: ${err.message || 'Unable to connect. Please try again later.'}`;
         }
-        console.error('Login error:', err);
     }
 }
 
@@ -434,6 +462,40 @@ function showAdminPanel() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'flex';
     document.getElementById('adminName').textContent = adminName;
+    
+    // Load server URL now that the panel is visible
+    loadServerUrl();
+    
+    // Set up server URL save button
+    const saveServerBtn = document.getElementById('saveServerBtn');
+    const serverUrlInput = document.getElementById('serverUrl');
+    if (saveServerBtn && serverUrlInput) {
+        saveServerBtn.addEventListener('click', () => {
+            const url = serverUrlInput.value.trim();
+            if (url) {
+                // Remove trailing slash
+                serverBaseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+                localStorage.setItem('liberHoopServerUrl', serverBaseUrl);
+                alert('Server URL saved! API calls will now use: ' + serverBaseUrl);
+                // Reload questions to test connection
+                loadQuestions();
+            } else {
+                // Clear server URL (use same origin)
+                serverBaseUrl = '';
+                localStorage.removeItem('liberHoopServerUrl');
+                alert('Server URL cleared. Using current server.');
+                loadQuestions();
+            }
+        });
+        
+        // Also save on Enter key
+        serverUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveServerBtn.click();
+            }
+        });
+    }
+    
     loadQuestions();
     
     // Check for existing session and start polling

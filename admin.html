@@ -17,13 +17,6 @@
             <h1>Quiz Admin</h1>
             <p class="auth-mode-badge" id="authModeBadge"></p>
             
-            <!-- Server Selection -->
-            <div class="form-group">
-                <label for="serverUrl">LiberHoop Server URL</label>
-                <input type="text" id="serverUrl" placeholder="https://your-server.trycloudflare.com" required>
-                <p class="form-help">Enter your Cloudflare tunnel URL or local server address</p>
-            </div>
-            
             <!-- Login Form -->
             <form id="loginForm">
                 <div class="form-group">
@@ -103,6 +96,11 @@
                     </button>
                 </div>
                 
+                <div class="server-url-container">
+                    <label for="serverUrl" class="server-url-label">Server:</label>
+                    <input type="text" id="serverUrl" class="server-url-input" placeholder="https://your-server.trycloudflare.com">
+                    <button class="btn-save-server" id="saveServerBtn" title="Save Server URL">💾</button>
+                </div>
                 <span id="adminName" class="admin-name"></span>
                 <button class="btn-secondary" id="logoutBtn">Logout</button>
             </div>

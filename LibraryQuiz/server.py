@@ -7,6 +7,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Requ
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 import json
 import asyncio
 import uuid
@@ -26,6 +27,17 @@ import bcrypt
 load_dotenv()
 
 app = FastAPI(title="Library Quiz Game")
+
+# ─────────────────────────── CORS Configuration ─────────────────────────── #
+
+# Add CORS middleware to allow requests from GitHub Pages and other origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins (you can restrict this to specific domains if needed)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers (needed for X-Admin-Token)
+)
 
 # ─────────────────────────── Supabase Database Setup ─────────────────────────── #
 
