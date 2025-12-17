@@ -2288,7 +2288,14 @@ async def auto_assign_teams(room_code: str, request: Request):
     }
 
 
-# Mount static files
+# Serve player.html as default root page (launch page is on GitHub Pages)
+# This route must be defined BEFORE mounting StaticFiles
+@app.get("/")
+async def root():
+    return FileResponse("static/player.html")
+
+# Mount static files for all other paths
+# Note: index.html is not in static/ since launch page is on GitHub Pages
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 
@@ -2297,8 +2304,8 @@ app.mount("/", StaticFiles(directory="static", html=True), name="static")
 if __name__ == "__main__":
     import uvicorn
     print("\n🎮 Library Quiz Game Starting...")
-    print("🏠 Launch page: http://localhost:8000")
+    print("👤 Players join: http://localhost:8000 (or Cloudflare tunnel URL)")
     print("📺 Host display: http://localhost:8000/host.html")
-    print("👤 Players join: http://localhost:8000/player.html")
-    print("⚙️  Admin panel: http://localhost:8000/admin.html\n")
+    print("⚙️  Admin panel: http://localhost:8000/admin.html")
+    print("ℹ️  Launch page: Hosted on GitHub Pages\n")
     uvicorn.run(app, host="0.0.0.0", port=8000)

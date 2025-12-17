@@ -246,6 +246,14 @@
                     return false;
                 }
             } catch (error) {
+                // Silently fail if we're on GitHub Pages or a static site
+                const isGitHubPages = window.location.hostname.includes('github.io') || 
+                                      window.location.hostname.includes('github.com');
+                if (isGitHubPages) {
+                    // Don't show errors on GitHub Pages - it's expected that there's no server
+                    return false;
+                }
+                
                 if (error.name === 'AbortError' || error.name === 'TimeoutError') {
                     showError('Connection timeout', 'The service is taking too long to respond. Please check your internet connection and try again.');
                 } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
@@ -283,27 +291,36 @@
 
         // Check server status on page load
         document.addEventListener('DOMContentLoaded', () => {
-            // Initial check
-            checkServerStatus();
+            // Only check server status if we're on the actual game server (not GitHub Pages)
+            // GitHub Pages will have a different hostname pattern
+            const isGitHubPages = window.location.hostname.includes('github.io') || 
+                                  window.location.hostname.includes('github.com') ||
+                                  window.location.hostname.includes('trycloudflare.com');
             
-            // Check every 30 seconds
-            serverCheckInterval = setInterval(checkServerStatus, 30000);
-            
-            // Also check when user tries to navigate
-            document.querySelectorAll('a[href]').forEach(link => {
-                link.addEventListener('click', async (e) => {
-                    // Only check for internal links
-                    if (link.href.includes(window.location.hostname) || 
-                        link.getAttribute('href').startsWith('/') ||
-                        !link.getAttribute('href').startsWith('http')) {
-                        const isOnline = await checkServerStatus();
-                        if (!isOnline) {
-                            e.preventDefault();
-                            // Show error is already handled by checkServerStatus
+            // Only run server checks if we're not on GitHub Pages
+            if (!isGitHubPages) {
+                // Initial check
+                checkServerStatus();
+                
+                // Check every 30 seconds
+                serverCheckInterval = setInterval(checkServerStatus, 30000);
+                
+                // Also check when user tries to navigate
+                document.querySelectorAll('a[href]').forEach(link => {
+                    link.addEventListener('click', async (e) => {
+                        // Only check for internal links
+                        if (link.href.includes(window.location.hostname) || 
+                            link.getAttribute('href').startsWith('/') ||
+                            !link.getAttribute('href').startsWith('http')) {
+                            const isOnline = await checkServerStatus();
+                            if (!isOnline) {
+                                e.preventDefault();
+                                // Show error is already handled by checkServerStatus
+                            }
                         }
-                    }
+                    });
                 });
-            });
+            }
         });
 
         // Cleanup on page unload

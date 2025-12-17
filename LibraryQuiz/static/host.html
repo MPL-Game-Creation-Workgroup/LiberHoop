@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host Display - Library Quiz Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="host.css">
+</head>
+<body>
+    <!-- Lobby Screen -->
+    <div id="lobbyScreen" class="screen active">
+        <div class="lobby-container">
+            <div class="logo-section">
+                <div class="logo">📚</div>
+                <h1>LIBRARY QUIZ</h1>
+            </div>
+            
+            <div class="join-info">
+                <p class="join-label">JOIN AT</p>
+                <p class="join-url" id="joinUrl">quiz.local:8000</p>
+                <div class="room-code-display">
+                    <span class="code-label">ROOM CODE</span>
+                    <span class="code" id="roomCodeDisplay">----</span>
+                </div>
+                <div class="qr-container">
+                    <div id="qrCode"></div>
+                </div>
+            </div>
+            
+            <div class="players-section">
+                <div class="players-header">
+                    <h2>PLAYERS <span id="playerCount">(0)</span></h2>
+                    <div class="team-controls">
+                        <button id="toggleTeamModeBtn" class="team-btn" title="Enable team mode">
+                            👥 Teams Off
+                        </button>
+                        <button id="autoAssignBtn" class="team-btn hidden" title="Auto-assign players to teams">
+                            🎲 Auto-Assign
+                        </button>
+                        <button id="addTeamBtn" class="team-btn hidden" title="Add a new team">
+                            + Add Team
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Teams container (shown in team mode) -->
+                <div id="teamsContainer" class="teams-container hidden">
+                    <!-- Teams will be added here dynamically -->
+                </div>
+                
+                <!-- Unassigned players (shown in team mode) -->
+                <div id="unassignedContainer" class="unassigned-container hidden">
+                    <h3>Unassigned Players</h3>
+                    <div class="players-grid" id="unassignedGrid">
+                        <!-- Unassigned player cards -->
+                    </div>
+                </div>
+                
+                <!-- Regular players grid (shown when not in team mode) -->
+                <div class="players-grid" id="playersGrid">
+                    <!-- Player cards will be added here -->
+                </div>
+            </div>
+            
+            <div class="host-controls">
+                <div class="game-mode-select">
+                    <label>GAME MODE</label>
+                    <div class="mode-buttons">
+                        <button id="classicModeBtn" class="mode-btn active" data-mode="classic">
+                            🎯 Classic
+                        </button>
+                        <button id="bowlModeBtn" class="mode-btn" data-mode="bowl">
+                            🔔 Bowl
+                        </button>
+                    </div>
+                    <p class="mode-description" id="modeDescription">Everyone answers, fastest correct wins most points</p>
+                </div>
+                
+                <div class="categories-select">
+                    <label>CATEGORIES</label>
+                    <div id="categoriesContainer" class="categories-list">
+                        <!-- Categories loaded dynamically -->
+                    </div>
+                </div>
+                
+                <div class="questions-select">
+                    <label>QUESTIONS</label>
+                    <select id="numQuestions">
+                        <option value="5">5 Questions</option>
+                        <option value="10" selected>10 Questions</option>
+                        <option value="15">15 Questions</option>
+                        <option value="20">20 Questions</option>
+                    </select>
+                </div>
+                
+                <div class="time-select">
+                    <label>TIME LIMIT</label>
+                    <select id="timeLimit">
+                        <option value="10">10 seconds</option>
+                        <option value="15" selected>15 seconds</option>
+                        <option value="20">20 seconds</option>
+                        <option value="30">30 seconds</option>
+                        <option value="45">45 seconds</option>
+                        <option value="60">60 seconds</option>
+                        <option value="0">No limit (wait for all)</option>
+                    </select>
+                </div>
+                
+                <button id="startGameBtn" class="start-btn" disabled>
+                    START GAME
+                </button>
+                
+                <button id="newRoomBtn" class="new-room-btn">
+                    🔄 NEW ROOM
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Screen -->
+    <div id="questionScreen" class="screen">
+        <div class="question-header">
+            <span class="q-number" id="questionNumber">Question 1 of 10</span>
+            <div class="timer-display">
+                <div class="timer-ring" id="timerRing">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="timer-bg" cx="50" cy="50" r="45"/>
+                        <circle class="timer-progress" id="timerProgress" cx="50" cy="50" r="45"/>
+                    </svg>
+                    <span class="timer-text" id="timerText">15</span>
+                </div>
+            </div>
+            <span class="answers-count" id="answersCount">0/0 answered</span>
+            <button class="skip-btn" id="skipBtn">SHOW ANSWER</button>
+        </div>
+        
+        <div class="question-content">
+            <h2 class="question-text" id="questionText">Loading question...</h2>
+            
+            <!-- Classic mode: answer grid -->
+            <div class="answers-grid" id="answersGrid">
+                <div class="answer-card red" data-index="0">
+                    <span class="shape">▲</span>
+                    <span class="text" id="answer0">Answer 1</span>
+                </div>
+                <div class="answer-card blue" data-index="1">
+                    <span class="shape">◆</span>
+                    <span class="text" id="answer1">Answer 2</span>
+                </div>
+                <div class="answer-card yellow" data-index="2">
+                    <span class="shape">●</span>
+                    <span class="text" id="answer2">Answer 3</span>
+                </div>
+                <div class="answer-card green" data-index="3">
+                    <span class="shape">■</span>
+                    <span class="text" id="answer3">Answer 4</span>
+                </div>
+            </div>
+            
+            <!-- Bowl mode: buzz and judgment UI -->
+            <div class="bowl-ui hidden" id="bowlUI">
+                <!-- Waiting for buzz -->
+                <div class="bowl-waiting" id="bowlWaiting">
+                    <div class="buzz-animation">🔔</div>
+                    <p class="buzz-prompt">Waiting for buzz...</p>
+                </div>
+                
+                <!-- Someone buzzed - showing their answer -->
+                <div class="bowl-answer hidden" id="bowlAnswer">
+                    <div class="buzzer-info">
+                        <span class="buzzer-team" id="buzzerTeam"></span>
+                        <span class="buzzer-name" id="buzzerName">Player Name</span>
+                        <span class="buzz-label" id="buzzLabel">BUZZED!</span>
+                    </div>
+                    <div class="submitted-answer" id="submittedAnswer">
+                        <span class="answer-label">Their answer:</span>
+                        <span class="answer-text" id="answerText">Waiting for answer...</span>
+                    </div>
+                    <div class="judgment-buttons hidden" id="judgmentButtons">
+                        <button class="judge-btn correct" id="judgeCorrectBtn">✓ CORRECT</button>
+                        <button class="judge-btn incorrect" id="judgeIncorrectBtn">✗ INCORRECT</button>
+                    </div>
+                </div>
+                
+                <!-- Steal phase -->
+                <div class="bowl-steal hidden" id="bowlSteal">
+                    <p class="steal-prompt">STEAL OPPORTUNITY!</p>
+                    <p class="steal-teams" id="stealTeams">Teams can steal...</p>
+                    <button class="skip-steal-btn" id="skipStealBtn">Skip Steal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reveal Screen -->
+    <div id="revealScreen" class="screen">
+        <div class="reveal-header">
+            <h2>THE ANSWER IS...</h2>
+        </div>
+        
+        <div class="correct-answer" id="correctAnswer">
+            <span class="shape"></span>
+            <span class="text"></span>
+        </div>
+        
+        <div class="results-summary">
+            <div class="result-stats" id="resultStats">
+                <!-- Stats filled by JS -->
+            </div>
+        </div>
+        
+        <div class="mini-leaderboard" id="miniLeaderboard">
+            <!-- Top 5 players -->
+        </div>
+        
+        <!-- Team standings (shown in team mode) -->
+        <div class="team-standings hidden" id="teamStandings">
+            <h3>TEAM STANDINGS</h3>
+            <div id="teamStandingsGrid">
+                <!-- Team scores -->
+            </div>
+        </div>
+        
+        <div class="reveal-controls">
+            <div class="minigame-controls-inline">
+                <select id="revealMinigameType">
+                    <option value="draw_freestyle">Free Draw</option>
+                    <option value="draw_prompt">Draw Prompt</option>
+                    <option value="microgame">Microgame</option>
+                </select>
+                <input type="text" id="revealMinigamePrompt" placeholder="Prompt (for draw_prompt)" style="display: none;">
+                <input type="number" id="revealMinigameDuration" value="60" min="10" max="300" placeholder="Duration">
+                <button id="revealStartMinigameBtn" class="minigame-btn-small">
+                    🎨 MINIGAME
+                </button>
+            </div>
+            <button id="nextQuestionBtn" class="next-btn">NEXT QUESTION</button>
+        </div>
+    </div>
+
+    <!-- Minigame Screen -->
+    <div id="minigameScreen" class="screen">
+        <div class="minigame-header-host">
+            <h2 id="minigameTitleHost">🎨 MINIGAME</h2>
+            <p id="minigamePromptHost" class="minigame-prompt-host"></p>
+            <div class="minigame-timer-host" id="minigameTimerHost"></div>
+            <button id="endMinigameBtn" class="end-minigame-btn">END MINIGAME</button>
+        </div>
+        
+        <div class="minigame-submissions" id="minigameSubmissions">
+            <p class="waiting-submissions">Waiting for submissions...</p>
+        </div>
+    </div>
+
+    <!-- Leaderboard Screen -->
+    <div id="leaderboardScreen" class="screen">
+        <h1 class="leaderboard-title">🏆 FINAL STANDINGS</h1>
+        
+        <!-- Team podium (shown in team mode) -->
+        <div class="team-podium hidden" id="teamPodium">
+            <!-- Winning teams -->
+        </div>
+        
+        <div class="podium" id="podium">
+            <!-- Top 3 players -->
+        </div>
+        
+        <div class="full-leaderboard" id="fullLeaderboard">
+            <!-- Everyone else -->
+        </div>
+        
+        <button id="playAgainBtn" class="play-again-btn">NEW GAME</button>
+    </div>
+
+    <script src="host.js"></script>
+</body>
+</html>
+
