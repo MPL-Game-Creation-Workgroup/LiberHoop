@@ -100,6 +100,7 @@ function updateServerUrlDisplay() {
 }
 
 // Load server URL from localStorage or detect if we're on the same server
+// Note: This does NOT set serverBaseUrl - validation must happen first
 function loadServerUrl() {
     const serverUrlInput = document.getElementById('serverUrl');
     if (!serverUrlInput) {
@@ -113,17 +114,15 @@ function loadServerUrl() {
                           window.location.hostname.includes('github.com');
     
     if (isGitHubPages) {
-        // On GitHub Pages - load saved server URL
+        // On GitHub Pages - load saved server URL (but don't set serverBaseUrl yet)
         const savedUrl = localStorage.getItem('liberHoopServerUrl');
         if (savedUrl) {
-            serverBaseUrl = savedUrl;
             serverUrlInput.value = savedUrl;
         }
     } else {
         // On the actual server - check if we have a saved URL, otherwise use same origin
         const savedUrl = localStorage.getItem('liberHoopServerUrl');
         if (savedUrl) {
-            serverBaseUrl = savedUrl;
             serverUrlInput.value = savedUrl;
         } else {
             // Default to same origin (empty string = relative paths)
@@ -150,30 +149,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     
-    // Load server URL configuration
+    // Load server URL configuration (just populates input field, doesn't validate or set serverBaseUrl)
     loadServerUrl();
     
-    // Validate saved server URL and clear if invalid
-    const savedUrl = localStorage.getItem('liberHoopServerUrl');
-    if (savedUrl) {
-        const isValid = await validateServerUrl(savedUrl);
-        if (!isValid) {
-            console.warn('Saved server URL is invalid, clearing:', savedUrl);
-            clearServerUrl();
-            // Update serverBaseUrl since we cleared it
-            serverBaseUrl = '';
-        }
+    // Don't validate on page load - validation happens when user submits
+    // Just set serverBaseUrl to empty initially (will be set from input field on submit)
+    const isGitHubPages = window.location.hostname.includes('github.io') || 
+                          window.location.hostname.includes('github.com');
+    
+    if (!isGitHubPages) {
+        // Not on GitHub Pages - can use same origin if no URL provided
+        serverBaseUrl = '';
+    } else {
+        // On GitHub Pages - need a server URL, but don't set it until user submits
+        serverBaseUrl = '';
     }
     
     // Update server URL display on login screen
     updateServerUrlDisplay();
     
-    // Check authentication mode (only if we have a server URL or are NOT on GitHub Pages)
-    const isGitHubPages = window.location.hostname.includes('github.io') || 
-                          window.location.hostname.includes('github.com');
-    
-    if (serverBaseUrl || !isGitHubPages) {
-        await checkAuthMode();
+    // Don't check auth mode on page load - wait until user submits with a URL
         
         // Check for saved token
         adminToken = localStorage.getItem('adminToken');
@@ -361,27 +356,61 @@ async function login() {
     errorEl.textContent = '';
     
     try {
-        // Use server URL from input field if provided, otherwise check localStorage, otherwise use same origin
+        // ALWAYS use the URL from the input field if provided (user's choice takes priority)
+        // Only fall back to cached URL if input field is empty
         const isGitHubPages = window.location.hostname.includes('github.io') || 
                               window.location.hostname.includes('github.com');
         
         if (serverUrlInput) {
-            // User entered a server URL - use it
-            serverBaseUrl = serverUrlInput.endsWith('/') ? serverUrlInput.slice(0, -1) : serverUrlInput;
-            // Save it for next time
+            // User provided a URL in the input field - use it (this is what they want)
+            const urlToUse = serverUrlInput.endsWith('/') ? serverUrlInput.slice(0, -1) : serverUrlInput;
+            console.log('Using server URL from input field (user provided):', urlToUse);
+            
+            // Validate the URL when user submits
+            const isValid = await validateServerUrl(urlToUse);
+            if (!isValid) {
+                errorEl.textContent = `Cannot connect to server at ${urlToUse}. Please check the URL and ensure the server is running.`;
+                return;
+            }
+            
+            serverBaseUrl = urlToUse;
+            // Save it for next time (so it pre-fills, but user can still change it)
             localStorage.setItem('liberHoopServerUrl', serverBaseUrl);
+            
+            // Check auth mode now that we have a valid server URL
+            await checkAuthMode();
         } else {
-            // No URL entered - check if we have a saved one
+            // Input field is empty - check if we have a cached one
             const savedUrl = localStorage.getItem('liberHoopServerUrl');
             if (savedUrl) {
-                serverBaseUrl = savedUrl.endsWith('/') ? savedUrl.slice(0, -1) : savedUrl;
+                // Use cached URL, but validate it first
+                const urlToUse = savedUrl.endsWith('/') ? savedUrl.slice(0, -1) : savedUrl;
+                console.log('Input field empty, using cached server URL:', urlToUse);
+                
+                // Validate cached URL when user submits
+                const isValid = await validateServerUrl(urlToUse);
+                if (!isValid) {
+                    // Cached URL is invalid, clear it
+                    clearServerUrl();
+                    errorEl.textContent = `The saved server URL (${urlToUse}) is no longer valid. Please enter a new server URL.`;
+                    return;
+                }
+                
+                serverBaseUrl = urlToUse;
+                
+                // Check auth mode now that we have a valid server URL
+                await checkAuthMode();
             } else {
-                // If on GitHub Pages without a server URL, we can't log in
+                // No URL in input field and no cached URL
                 if (isGitHubPages) {
                     errorEl.textContent = 'Please enter a server URL to connect to your LiberHoop server.';
                     return;
                 }
                 serverBaseUrl = ''; // Same origin - try to log in to current server
+                console.log('No server URL provided, using same origin');
+                
+                // Check auth mode for same origin
+                await checkAuthMode();
             }
         }
         
