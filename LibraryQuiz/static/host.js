@@ -276,7 +276,11 @@ function setupEventListeners() {
         revealStartMinigameBtn.addEventListener('click', startMinigameFromReveal);
     }
     
-    // Minigames are now client-side only (removed drawing minigames)
+    const revealMinigameType = document.getElementById('revealMinigameType');
+    const revealMinigameDuration = document.getElementById('revealMinigameDuration');
+    if (revealMinigameType && revealMinigameDuration) {
+        // Minigame controls are ready
+    }
     
     // Skip to answer / show results
     document.getElementById('skipBtn').addEventListener('click', () => {
@@ -1672,9 +1676,20 @@ function renderTeamPodium(teamLeaderboard) {
 // ─────────────────────────── Minigame Functions ─────────────────────────── #
 
 function startMinigameFromReveal() {
-    // Minigames are now client-side only (available to players in lobby)
-    // Host can no longer start synchronized minigames
-    // This function is kept for potential future use
+    const minigameType = document.getElementById('revealMinigameType').value;
+    const duration = parseInt(document.getElementById('revealMinigameDuration').value) || 30;
+    
+    if (duration < 10 || duration > 120) {
+        alert('Duration must be between 10 and 120 seconds');
+        return;
+    }
+    
+    // Start synchronized minigame break
+    sendToHost({
+        type: 'start_minigame',
+        minigame_type: minigameType,
+        duration: duration
+    });
 }
 
 function showMinigameHost(data) {

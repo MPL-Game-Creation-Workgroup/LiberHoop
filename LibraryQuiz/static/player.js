@@ -238,11 +238,31 @@ function handleMessage(data) {
             
         case 'game_starting':
             hideHostDisconnected();
+            // Close any active lobby minigames when game starts
+            if (state.minigameState && state.minigameState.local) {
+                state.minigameState = null;
+                state.currentMicrogame = null;
+                state.currentPuzzle = null;
+                if (state.minigameTimerInterval) {
+                    clearInterval(state.minigameTimerInterval);
+                    state.minigameTimerInterval = null;
+                }
+            }
             // Show countdown or transition
             break;
             
         case 'question':
             hideHostDisconnected();
+            // Close any active lobby minigames when question arrives
+            if (state.minigameState && state.minigameState.local) {
+                state.minigameState = null;
+                state.currentMicrogame = null;
+                state.currentPuzzle = null;
+                if (state.minigameTimerInterval) {
+                    clearInterval(state.minigameTimerInterval);
+                    state.minigameTimerInterval = null;
+                }
+            }
             showQuestion(data);
             break;
             
@@ -353,7 +373,22 @@ function handleMessage(data) {
             break;
             
         case 'minigame_end':
-            hideMinigame();
+            // Synchronized minigame ended - return to appropriate screen
+            state.minigameState = null;
+            state.currentMicrogame = null;
+            state.currentPuzzle = null;
+            if (state.minigameTimerInterval) {
+                clearInterval(state.minigameTimerInterval);
+                state.minigameTimerInterval = null;
+            }
+            // Return to results/reveal screen if we were in a game
+            // The server will send a room_state message to properly restore the reveal screen
+            // For now, just hide the minigame - the room_state handler will show the correct screen
+            if (state.answered) {
+                showScreen('resultsScreen');
+            } else {
+                showScreen('lobbyScreen');
+            }
             break;
             
         case 'minigame_submission_received':
@@ -1022,6 +1057,29 @@ function showMinigame(data) {
     state.minigameState = data;
     
     const minigameType = data.minigame_type || 'microgame';
+    const isLocal = data.local === true; // Lobby minigame (can exit)
+    const isSynchronized = !isLocal && data.duration && data.duration > 0; // Mid-game break (timer)
+    
+    // Show/hide exit button based on whether it's a lobby minigame
+    const exitBtn = document.getElementById('exitMinigameBtn');
+    if (exitBtn) {
+        exitBtn.style.display = isLocal ? 'block' : 'none';
+    }
+    
+    // Show timer for synchronized minigames
+    const timerEl = document.getElementById('minigameTimer');
+    if (timerEl) {
+        if (isSynchronized && data.duration) {
+            timerEl.style.display = 'block';
+            startMinigameTimer(data.duration);
+        } else {
+            timerEl.style.display = 'none';
+            if (state.minigameTimerInterval) {
+                clearInterval(state.minigameTimerInterval);
+                state.minigameTimerInterval = null;
+            }
+        }
+    }
     
     // Update UI based on minigame type
     if (minigameType === 'microgame') {
@@ -1287,9 +1345,48 @@ function endLocalMinigame() {
     }
 }
 
+function startMinigameTimer(duration) {
+    const timerEl = document.getElementById('minigameTimer');
+    if (!timerEl) return;
+    
+    let timeLeft = duration;
+    timerEl.textContent = `⏱️ Break ends in: ${timeLeft}s`;
+    timerEl.style.display = 'block';
+    
+    if (state.minigameTimerInterval) {
+        clearInterval(state.minigameTimerInterval);
+    }
+    
+    state.minigameTimerInterval = setInterval(() => {
+        timeLeft--;
+        if (timerEl) {
+            timerEl.textContent = `⏱️ Break ends in: ${timeLeft}s`;
+            if (timeLeft <= 10) {
+                timerEl.style.color = 'var(--warning)';
+            }
+        }
+        if (timeLeft <= 0) {
+            clearInterval(state.minigameTimerInterval);
+            state.minigameTimerInterval = null;
+            // Timer ended - minigame will end via server message (minigame_end)
+            // Just hide the timer
+            if (timerEl) {
+                timerEl.style.display = 'none';
+            }
+        }
+    }, 1000);
+}
+
 function hideMinigame() {
+    // Only allow exit if it's a local/lobby minigame
+    if (state.minigameState && !state.minigameState.local) {
+        // Synchronized minigame - don't allow manual exit, wait for timer
+        return;
+    }
+    
     state.minigameState = null;
     state.currentMicrogame = null;
+    state.currentPuzzle = null;
     if (state.minigameTimerInterval) {
         clearInterval(state.minigameTimerInterval);
         state.minigameTimerInterval = null;
@@ -1306,6 +1403,7 @@ function hideMinigame() {
 
 function showPuzzleGame(data) {
     const minigameType = data.minigame_type;
+    const isLocal = data.local === true;
     const puzzleUI = document.getElementById('puzzleGameUI');
     const microgameUI = document.getElementById('microgameUI');
     
@@ -1313,6 +1411,12 @@ function showPuzzleGame(data) {
         puzzleUI.style.display = 'block';
     }
     if (microgameUI) microgameUI.style.display = 'none';
+    
+    // Show/hide exit button for lobby puzzles
+    const exitBtn = document.getElementById('exitMinigameBtn');
+    if (exitBtn) {
+        exitBtn.style.display = isLocal ? 'block' : 'none';
+    }
     
     const titleEl = document.getElementById('minigameTitle');
     if (titleEl) {

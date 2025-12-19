@@ -226,7 +226,16 @@
         
         <div class="reveal-controls">
             <div class="minigame-controls-inline">
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0.5rem 0;">Note: Minigames are available to players in the lobby</p>
+                <select id="revealMinigameType">
+                    <option value="microgame">⚡ Microgame Break</option>
+                    <option value="word_search">🔍 Word Search</option>
+                    <option value="pattern_match">🧩 Pattern Match</option>
+                    <option value="sequence_puzzle">🔢 Sequence Puzzle</option>
+                </select>
+                <input type="number" id="revealMinigameDuration" value="30" min="10" max="120" placeholder="Duration (seconds)" style="width: 120px;">
+                <button id="revealStartMinigameBtn" class="minigame-btn-small">
+                    🎮 START BREAK
+                </button>
             </div>
             <button id="nextQuestionBtn" class="next-btn">NEXT QUESTION</button>
         </div>

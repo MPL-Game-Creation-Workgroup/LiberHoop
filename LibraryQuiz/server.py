@@ -1348,11 +1348,10 @@ async def handle_host_message(room: GameRoom, data: dict):
     elif msg_type == "start_minigame":
         minigame_type = data.get("minigame_type", "microgame")
         prompt = data.get("prompt")
-        duration = data.get("duration", 60)
+        duration = data.get("duration", 30)  # Default 30 seconds for breaks
         
         # Can only start synchronized minigame after reveal (not in lobby)
         # Lobby minigames are player-controlled and client-side only
-        # Note: Currently all minigames are client-side only
         if room.state == "reveal":
             await start_minigame(room, minigame_type, prompt, duration)
     
