@@ -169,12 +169,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateServerUrlDisplay();
     
     // Don't check auth mode on page load - wait until user submits with a URL
-        
-        // Check for saved token
-        adminToken = localStorage.getItem('adminToken');
-        if (adminToken) {
-            checkAuth();
-        }
+    
+    // Check for saved token
+    adminToken = localStorage.getItem('adminToken');
+    if (adminToken) {
+        checkAuth();
     }
     
     setupEventListeners();
