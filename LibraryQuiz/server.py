@@ -2324,6 +2324,375 @@ async def auto_assign_teams(room_code: str, request: Request):
     }
 
 
+# ─────────────────────────── Marketplace Routes ─────────────────────────── #
+
+@app.post("/api/marketplace/share")
+async def share_category(request: Request):
+    """Share a category to the marketplace"""
+    username = get_admin_from_request(request)
+    if not username:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    if not supabase_client:
+        raise HTTPException(status_code=400, detail="Supabase not configured. Marketplace requires Supabase.")
+    
+    data = await request.json()
+    category_id = data.get("category_id")
+    name = data.get("name", "").strip()
+    description = data.get("description", "").strip()
+    tags = data.get("tags", [])
+    difficulty = data.get("difficulty")  # 'easy', 'medium', 'hard', or null
+    
+    if not category_id:
+        raise HTTPException(status_code=400, detail="category_id required")
+    
+    # Load questions and validate category exists
+    questions = load_questions()
+    if category_id not in questions["categories"]:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    category = questions["categories"][category_id]
+    if len(category["questions"]) == 0:
+        raise HTTPException(status_code=400, detail="Category has no questions to share")
+    
+    # Get admin info
+    admin_info = admin_sessions.get(request.headers.get("X-Admin-Token", ""))
+    author_name = admin_info.get("name", username) if admin_info else username
+    
+    # Prepare category data for sharing
+    shared_data = {
+        "category_id": category_id,
+        "name": name or category["name"],
+        "description": description,
+        "tags": tags if isinstance(tags, list) else [t.strip() for t in str(tags).split(",") if t.strip()],
+        "difficulty": difficulty if difficulty in ["easy", "medium", "hard"] else None,
+        "question_count": len(category["questions"]),
+        "author_username": username,
+        "author_name": author_name,
+        "questions": category["questions"],
+        "rating_average": 0.0,
+        "rating_count": 0,
+        "download_count": 0,
+        "is_active": True
+    }
+    
+    try:
+        result = supabase_client.table("shared_categories").insert(shared_data).execute()
+        if result.data:
+            return {
+                "status": "shared",
+                "id": result.data[0]["id"],
+                "message": "Category shared successfully"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to share category")
+    except Exception as e:
+        print(f"Error sharing category: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to share category: {str(e)}")
+
+
+@app.get("/api/marketplace/categories")
+async def get_shared_categories(
+    request: Request,
+    search: str = None,
+    tags: str = None,
+    difficulty: str = None,
+    author: str = None,
+    sort: str = "newest",
+    page: int = 1,
+    limit: int = 20
+):
+    """List/search shared categories"""
+    if not supabase_client:
+        raise HTTPException(status_code=400, detail="Supabase not configured. Marketplace requires Supabase.")
+    
+    try:
+        query = supabase_client.table("shared_categories").select("*")
+        
+        # Filter by active only
+        query = query.eq("is_active", True)
+        
+        # Search filter - search in name or description
+        if search:
+            # Supabase doesn't support OR directly, so we'll filter client-side or use a different approach
+            # For now, search in name (can be enhanced later)
+            query = query.ilike("name", f"%{search}%")
+        
+        # Tags filter - filter by first tag (Supabase array contains limitation)
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+            if tag_list:
+                # Use cs (contains) operator for array contains
+                query = query.contains("tags", [tag_list[0]])
+        
+        # Difficulty filter
+        if difficulty and difficulty in ["easy", "medium", "hard"]:
+            query = query.eq("difficulty", difficulty)
+        
+        # Author filter
+        if author:
+            query = query.eq("author_username", author)
+        
+        # Sorting
+        if sort == "popular":
+            query = query.order("download_count", desc=True)
+        elif sort == "rating":
+            query = query.order("rating_average", desc=True)
+        elif sort == "newest":
+            query = query.order("created_at", desc=True)
+        else:
+            query = query.order("created_at", desc=True)
+        
+        # Pagination
+        offset = (page - 1) * limit
+        query = query.range(offset, offset + limit - 1)
+        
+        result = query.execute()
+        
+        return {
+            "categories": result.data or [],
+            "page": page,
+            "limit": limit,
+            "total": len(result.data) if result.data else 0
+        }
+    except Exception as e:
+        print(f"Error fetching shared categories: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch categories: {str(e)}")
+
+
+@app.get("/api/marketplace/categories/{category_id}")
+async def get_shared_category(category_id: str, request: Request):
+    """Get full details of a shared category"""
+    if not supabase_client:
+        raise HTTPException(status_code=400, detail="Supabase not configured. Marketplace requires Supabase.")
+    
+    try:
+        # Get category
+        category_result = supabase_client.table("shared_categories").select("*").eq("id", category_id).eq("is_active", True).execute()
+        
+        if not category_result.data or len(category_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Category not found")
+        
+        category = category_result.data[0]
+        
+        # Get ratings
+        ratings_result = supabase_client.table("shared_category_ratings").select("*").eq("shared_category_id", category_id).order("created_at", desc=True).execute()
+        
+        category["ratings"] = ratings_result.data or []
+        
+        return category
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error fetching category: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch category: {str(e)}")
+
+
+@app.post("/api/marketplace/categories/{category_id}/import")
+async def import_category(category_id: str, request: Request):
+    """Import a shared category to local question bank"""
+    username = get_admin_from_request(request)
+    if not username:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    if not supabase_client:
+        raise HTTPException(status_code=400, detail="Supabase not configured. Marketplace requires Supabase.")
+    
+    data = await request.json()
+    new_category_name = data.get("new_name")  # Optional: rename on import
+    
+    try:
+        # Get shared category
+        result = supabase_client.table("shared_categories").select("*").eq("id", category_id).eq("is_active", True).execute()
+        
+        if not result.data or len(result.data) == 0:
+            raise HTTPException(status_code=404, detail="Category not found")
+        
+        shared = result.data[0]
+        
+        # Load local questions
+        questions = load_questions()
+        
+        # Generate new category ID to avoid conflicts
+        base_id = new_category_name.lower().replace(" ", "_") if new_category_name else shared["name"].lower().replace(" ", "_")
+        new_cat_id = base_id
+        counter = 1
+        while new_cat_id in questions["categories"]:
+            new_cat_id = f"{base_id}_{counter}"
+            counter += 1
+        
+        # Create new category
+        questions["categories"][new_cat_id] = {
+            "name": new_category_name or shared["name"],
+            "questions": shared["questions"]
+        }
+        
+        save_questions(questions)
+        
+        # Increment download count
+        try:
+            supabase_client.table("shared_categories").update({
+                "download_count": (shared.get("download_count", 0) or 0) + 1
+            }).eq("id", category_id).execute()
+        except:
+            pass  # Don't fail import if download count update fails
+        
+        return {
+            "status": "imported",
+            "category_id": new_cat_id,
+            "category_name": new_category_name or shared["name"],
+            "question_count": len(shared["questions"])
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error importing category: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to import category: {str(e)}")
+
+
+@app.post("/api/marketplace/categories/{category_id}/rate")
+async def rate_category(category_id: str, request: Request):
+    """Rate a shared category"""
+    username = get_admin_from_request(request)
+    if not username:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    if not supabase_client:
+        raise HTTPException(status_code=400, detail="Supabase not configured. Marketplace requires Supabase.")
+    
+    data = await request.json()
+    rating = data.get("rating")  # 1-5
+    comment = data.get("comment", "").strip()
+    
+    if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    
+    try:
+        # Check if category exists
+        cat_result = supabase_client.table("shared_categories").select("id").eq("id", category_id).eq("is_active", True).execute()
+        if not cat_result.data:
+            raise HTTPException(status_code=404, detail="Category not found")
+        
+        # Check if user already rated
+        existing = supabase_client.table("shared_category_ratings").select("*").eq("shared_category_id", category_id).eq("rater_username", username).execute()
+        
+        rating_data = {
+            "shared_category_id": category_id,
+            "rater_username": username,
+            "rating": rating,
+            "comment": comment
+        }
+        
+        if existing.data and len(existing.data) > 0:
+            # Update existing rating
+            supabase_client.table("shared_category_ratings").update(rating_data).eq("id", existing.data[0]["id"]).execute()
+        else:
+            # Create new rating
+            supabase_client.table("shared_category_ratings").insert(rating_data).execute()
+        
+        # Recalculate average rating
+        all_ratings = supabase_client.table("shared_category_ratings").select("rating").eq("shared_category_id", category_id).execute()
+        
+        if all_ratings.data:
+            ratings = [r["rating"] for r in all_ratings.data]
+            avg_rating = sum(ratings) / len(ratings)
+            rating_count = len(ratings)
+        else:
+            avg_rating = 0.0
+            rating_count = 0
+        
+        # Update category with new average
+        supabase_client.table("shared_categories").update({
+            "rating_average": round(avg_rating, 2),
+            "rating_count": rating_count
+        }).eq("id", category_id).execute()
+        
+        return {
+            "status": "rated",
+            "rating_average": avg_rating,
+            "rating_count": rating_count
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error rating category: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to rate category: {str(e)}")
+
+
+@app.put("/api/marketplace/categories/{category_id}")
+async def update_shared_category(category_id: str, request: Request):
+    """Update own shared category"""
+    username = get_admin_from_request(request)
+    if not username:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    if not supabase_client:
+        raise HTTPException(status_code=400, detail="Supabase not configured. Marketplace requires Supabase.")
+    
+    data = await request.json()
+    
+    try:
+        # Check if category exists and belongs to user
+        result = supabase_client.table("shared_categories").select("*").eq("id", category_id).eq("author_username", username).execute()
+        
+        if not result.data or len(result.data) == 0:
+            raise HTTPException(status_code=404, detail="Category not found or you don't have permission")
+        
+        # Prepare update data
+        update_data = {}
+        if "name" in data:
+            update_data["name"] = data["name"]
+        if "description" in data:
+            update_data["description"] = data["description"]
+        if "tags" in data:
+            update_data["tags"] = data["tags"] if isinstance(data["tags"], list) else [t.strip() for t in str(data["tags"]).split(",") if t.strip()]
+        if "difficulty" in data:
+            update_data["difficulty"] = data["difficulty"] if data["difficulty"] in ["easy", "medium", "hard"] else None
+        
+        update_data["updated_at"] = datetime.utcnow().isoformat()
+        
+        # Update
+        supabase_client.table("shared_categories").update(update_data).eq("id", category_id).execute()
+        
+        return {"status": "updated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating category: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to update category: {str(e)}")
+
+
+@app.delete("/api/marketplace/categories/{category_id}")
+async def delete_shared_category(category_id: str, request: Request):
+    """Remove own shared category (soft delete)"""
+    username = get_admin_from_request(request)
+    if not username:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    if not supabase_client:
+        raise HTTPException(status_code=400, detail="Supabase not configured. Marketplace requires Supabase.")
+    
+    try:
+        # Check if category exists and belongs to user
+        result = supabase_client.table("shared_categories").select("*").eq("id", category_id).eq("author_username", username).execute()
+        
+        if not result.data or len(result.data) == 0:
+            raise HTTPException(status_code=404, detail="Category not found or you don't have permission")
+        
+        # Soft delete
+        supabase_client.table("shared_categories").update({
+            "is_active": False,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", category_id).execute()
+        
+        return {"status": "deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error deleting category: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to delete category: {str(e)}")
+
+
 # Serve player.html as default root page (launch page is on GitHub Pages)
 # This route must be defined BEFORE mounting StaticFiles
 @app.get("/")

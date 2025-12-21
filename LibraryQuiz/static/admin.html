@@ -107,27 +107,77 @@
         </header>
 
         <main class="admin-content">
-            <div class="questions-layout">
-                <aside class="categories-sidebar">
-                    <div class="sidebar-header">
-                        <h2>Categories</h2>
-                        <button class="btn-icon" id="addCategoryBtn" title="Add Category">+</button>
-                    </div>
-                    <ul class="categories-list" id="categoriesList">
-                        <!-- Categories loaded dynamically -->
-                    </ul>
-                </aside>
+            <!-- Tabs Navigation -->
+            <div class="admin-tabs">
+                <button class="tab-button active" data-tab="questions" id="questionsTab">
+                    📝 Questions
+                </button>
+                <button class="tab-button" data-tab="marketplace" id="marketplaceTab">
+                    🛒 Marketplace
+                </button>
+            </div>
 
-                <div class="questions-main">
+            <!-- Questions Tab -->
+            <div class="tab-content active" id="questionsTabContent">
+                <div class="questions-layout">
+                    <aside class="categories-sidebar">
+                        <div class="sidebar-header">
+                            <h2>Categories</h2>
+                            <button class="btn-icon" id="addCategoryBtn" title="Add Category">+</button>
+                        </div>
+                        <ul class="categories-list" id="categoriesList">
+                            <!-- Categories loaded dynamically -->
+                        </ul>
+                    </aside>
+
+                    <div class="questions-main">
                     <div class="questions-header">
                         <h2 id="categoryTitle">Select a category</h2>
-                        <button class="btn-primary" id="addQuestionBtn" style="display: none;">
-                            + Add Question
-                        </button>
+                        <div class="header-actions">
+                            <button class="btn-secondary" id="shareCategoryBtn" style="display: none;" title="Share to Marketplace">
+                                🛒 Share
+                            </button>
+                            <button class="btn-primary" id="addQuestionBtn" style="display: none;">
+                                + Add Question
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="questions-list" id="questionsList">
-                        <p class="empty-state">Select a category to view and edit questions.</p>
+                        <div class="questions-list" id="questionsList">
+                            <p class="empty-state">Select a category to view and edit questions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Marketplace Tab -->
+            <div class="tab-content" id="marketplaceTabContent" style="display: none;">
+                <div class="marketplace-container">
+                    <!-- Search and Filters -->
+                    <div class="marketplace-search">
+                        <div class="search-bar">
+                            <input type="text" id="marketplaceSearch" placeholder="Search categories..." />
+                            <button class="btn-primary" id="marketplaceSearchBtn">Search</button>
+                        </div>
+                        <div class="marketplace-filters">
+                            <select id="marketplaceDifficultyFilter">
+                                <option value="">All Difficulties</option>
+                                <option value="easy">Easy</option>
+                                <option value="medium">Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                            <select id="marketplaceSortFilter">
+                                <option value="newest">Newest</option>
+                                <option value="popular">Most Popular</option>
+                                <option value="rating">Highest Rated</option>
+                            </select>
+                            <input type="text" id="marketplaceTagsFilter" placeholder="Tags (comma-separated)" />
+                        </div>
+                    </div>
+
+                    <!-- Marketplace Categories Grid -->
+                    <div class="marketplace-grid" id="marketplaceGrid">
+                        <p class="empty-state">Loading marketplace...</p>
                     </div>
                 </div>
             </div>
@@ -261,6 +311,93 @@
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
                 <button class="btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Category Modal -->
+    <div class="modal" id="shareCategoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Share Category to Marketplace</h3>
+                <button class="modal-close" onclick="closeModal('shareCategoryModal')">&times;</button>
+            </div>
+            <form id="shareCategoryForm">
+                <input type="hidden" id="shareCategoryId">
+                <div class="form-group">
+                    <label for="shareCategoryName">Category Name</label>
+                    <input type="text" id="shareCategoryName" required>
+                </div>
+                <div class="form-group">
+                    <label for="shareCategoryDescription">Description</label>
+                    <textarea id="shareCategoryDescription" rows="3" placeholder="Describe this category..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="shareCategoryTags">Tags (comma-separated)</label>
+                    <input type="text" id="shareCategoryTags" placeholder="e.g. science, biology, nature">
+                    <p class="help-text">Add tags to help others find your category</p>
+                </div>
+                <div class="form-group">
+                    <label for="shareCategoryDifficulty">Difficulty</label>
+                    <select id="shareCategoryDifficulty">
+                        <option value="">Not specified</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Questions Preview</label>
+                    <div id="shareCategoryPreview" class="share-preview">
+                        <!-- Questions preview loaded here -->
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('shareCategoryModal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Share to Marketplace</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import Category Modal -->
+    <div class="modal" id="importCategoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Import Category</h3>
+                <button class="modal-close" onclick="closeModal('importCategoryModal')">&times;</button>
+            </div>
+            <div id="importCategoryInfo">
+                <!-- Category info loaded here -->
+            </div>
+            <form id="importCategoryForm">
+                <input type="hidden" id="importCategoryId">
+                <div class="form-group">
+                    <label for="importCategoryNewName">Category Name (optional rename)</label>
+                    <input type="text" id="importCategoryNewName" placeholder="Leave empty to use original name">
+                    <p class="help-text">If a category with this name already exists, a number will be added</p>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('importCategoryModal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Import Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preview Category Modal -->
+    <div class="modal" id="previewCategoryModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="previewCategoryTitle">Category Preview</h3>
+                <button class="modal-close" onclick="closeModal('previewCategoryModal')">&times;</button>
+            </div>
+            <div id="previewCategoryContent">
+                <!-- Category preview loaded here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('previewCategoryModal')">Close</button>
+                <button class="btn-primary" id="previewImportBtn">Import This Category</button>
             </div>
         </div>
     </div>

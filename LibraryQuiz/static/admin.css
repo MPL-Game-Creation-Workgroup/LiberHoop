@@ -979,3 +979,334 @@ body {
     }
 }
 
+/* ─────────────────────────── Tabs ─────────────────────────── */
+
+.admin-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 2rem;
+    padding: 0 1rem;
+}
+
+.tab-button {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+
+.tab-button:hover {
+    color: var(--primary);
+    background: rgba(108, 92, 231, 0.05);
+}
+
+.tab-button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ─────────────────────────── Marketplace ─────────────────────────── */
+
+.marketplace-container {
+    padding: 1rem;
+}
+
+.marketplace-search {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.search-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.search-bar input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.marketplace-filters {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.marketplace-filters select,
+.marketplace-filters input {
+    padding: 0.5rem;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.marketplace-filters input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.marketplace-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.marketplace-card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.marketplace-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.marketplace-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 1rem;
+}
+
+.marketplace-card-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--text);
+    flex: 1;
+}
+
+.marketplace-description {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.marketplace-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.marketplace-stats {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.marketplace-author {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.marketplace-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tag-chip {
+    background: var(--secondary);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.difficulty-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.difficulty-badge.easy {
+    background: var(--success);
+    color: white;
+}
+
+.difficulty-badge.medium {
+    background: var(--warning);
+    color: var(--text);
+}
+
+.difficulty-badge.hard {
+    background: var(--danger);
+    color: white;
+}
+
+.marketplace-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+/* ─────────────────────────── Share/Import Modals ─────────────────────────── */
+
+.share-preview {
+    background: var(--bg);
+    padding: 1rem;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.preview-questions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.preview-questions-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+
+.preview-questions-list li:last-child {
+    border-bottom: none;
+}
+
+.preview-info {
+    background: var(--bg);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.preview-info p {
+    margin: 0.5rem 0;
+}
+
+.preview-questions {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.preview-question {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 1rem;
+}
+
+.preview-question:last-child {
+    border-bottom: none;
+}
+
+.question-type-badge {
+    background: var(--primary);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.preview-more {
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 1rem;
+}
+
+.import-info {
+    background: var(--bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.import-info h4 {
+    margin: 0 0 1rem 0;
+    color: var(--primary);
+}
+
+.import-info p {
+    margin: 0.5rem 0;
+}
+
+.import-warning {
+    color: var(--warning);
+    font-weight: 600;
+    margin-top: 1rem !important;
+}
+
+.modal-large {
+    max-width: 800px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* ─────────────────────────── Responsive Marketplace ─────────────────────────── */
+
+@media (max-width: 768px) {
+    .marketplace-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .search-bar {
+        flex-direction: column;
+    }
+    
+    .marketplace-filters {
+        flex-direction: column;
+    }
+    
+    .marketplace-filters input {
+        min-width: 100%;
+    }
+    
+    .admin-tabs {
+        padding: 0 0.5rem;
+    }
+    
+    .tab-button {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+}
+

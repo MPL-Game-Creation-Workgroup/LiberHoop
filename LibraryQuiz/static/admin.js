@@ -692,11 +692,13 @@ function selectCategory(catId) {
 function renderQuestions() {
     const container = document.getElementById('questionsList');
     const addBtn = document.getElementById('addQuestionBtn');
+    const shareBtn = document.getElementById('shareCategoryBtn');
     const title = document.getElementById('categoryTitle');
     
     if (!currentCategory || !questionsData.categories[currentCategory]) {
         container.innerHTML = '<p class="empty-state">Select a category to view questions.</p>';
         addBtn.style.display = 'none';
+        if (shareBtn) shareBtn.style.display = 'none';
         title.textContent = 'Select a category';
         return;
     }
@@ -704,6 +706,9 @@ function renderQuestions() {
     const category = questionsData.categories[currentCategory];
     title.textContent = category.name;
     addBtn.style.display = 'block';
+    if (shareBtn) {
+        shareBtn.style.display = category.questions.length > 0 ? 'block' : 'none';
+    }
     
     if (category.questions.length === 0) {
         container.innerHTML = '<p class="empty-state">No questions in this category. Add one!</p>';
@@ -1029,4 +1034,428 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ─────────────────────────── Tab Management ─────────────────────────── #
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabName = btn.dataset.tab;
+            switchTab(tabName);
+        });
+    });
+    
+    // Marketplace search
+    const searchBtn = document.getElementById('marketplaceSearchBtn');
+    const searchInput = document.getElementById('marketplaceSearch');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => loadMarketplace());
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadMarketplace();
+            });
+        }
+    }
+    
+    // Marketplace filters
+    const difficultyFilter = document.getElementById('marketplaceDifficultyFilter');
+    const sortFilter = document.getElementById('marketplaceSortFilter');
+    const tagsFilter = document.getElementById('marketplaceTagsFilter');
+    
+    if (difficultyFilter) difficultyFilter.addEventListener('change', () => loadMarketplace());
+    if (sortFilter) sortFilter.addEventListener('change', () => loadMarketplace());
+    if (tagsFilter) tagsFilter.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loadMarketplace();
+    });
+    
+    // Share category button
+    const shareBtn = document.getElementById('shareCategoryBtn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', () => {
+            if (currentCategory) {
+                openShareCategoryModal(currentCategory);
+            }
+        });
+    }
+    
+    // Share category form
+    const shareForm = document.getElementById('shareCategoryForm');
+    if (shareForm) {
+        shareForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await shareCategory();
+        });
+    }
+    
+    // Import category form
+    const importForm = document.getElementById('importCategoryForm');
+    if (importForm) {
+        importForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await importCategory();
+        });
+    }
+    
+    // Preview import button
+    const previewImportBtn = document.getElementById('previewImportBtn');
+    if (previewImportBtn) {
+        previewImportBtn.addEventListener('click', () => {
+            const categoryId = previewImportBtn.dataset.categoryId;
+            if (categoryId) {
+                closeModal('previewCategoryModal');
+                openImportCategoryModal(categoryId);
+            }
+        });
+    }
+});
+
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = content.id === `${tabName}TabContent` ? 'block' : 'none';
+        content.classList.toggle('active', content.id === `${tabName}TabContent`);
+    });
+    
+    // Load marketplace if switching to it
+    if (tabName === 'marketplace') {
+        loadMarketplace();
+    }
+}
+
+// ─────────────────────────── Marketplace Functions ─────────────────────────── #
+
+let marketplaceCategories = [];
+
+async function loadMarketplace() {
+    const grid = document.getElementById('marketplaceGrid');
+    if (!grid) return;
+    
+    grid.innerHTML = '<p class="empty-state">Loading marketplace...</p>';
+    
+    try {
+        const search = document.getElementById('marketplaceSearch')?.value || '';
+        const difficulty = document.getElementById('marketplaceDifficultyFilter')?.value || '';
+        const sort = document.getElementById('marketplaceSortFilter')?.value || 'newest';
+        const tags = document.getElementById('marketplaceTagsFilter')?.value || '';
+        
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (difficulty) params.append('difficulty', difficulty);
+        if (sort) params.append('sort', sort);
+        if (tags) params.append('tags', tags);
+        
+        const response = await fetch(getApiUrl(`/api/marketplace/categories?${params.toString()}`), {
+            headers: authHeaders()
+        });
+        
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+        
+        if (!response.ok) {
+            const error = await response.json();
+            grid.innerHTML = `<p class="empty-state">Error: ${error.detail || 'Failed to load marketplace'}</p>`;
+            return;
+        }
+        
+        const data = await response.json();
+        marketplaceCategories = data.categories || [];
+        
+        if (marketplaceCategories.length === 0) {
+            grid.innerHTML = '<p class="empty-state">No categories found. Be the first to share one!</p>';
+            return;
+        }
+        
+        renderMarketplaceCategories(marketplaceCategories);
+    } catch (err) {
+        console.error('Error loading marketplace:', err);
+        grid.innerHTML = '<p class="empty-state">Error loading marketplace. Please check your connection.</p>';
+    }
+}
+
+function renderMarketplaceCategories(categories) {
+    const grid = document.getElementById('marketplaceGrid');
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    
+    categories.forEach(cat => {
+        const card = document.createElement('div');
+        card.className = 'marketplace-card';
+        
+        const ratingStars = renderStars(cat.rating_average || 0);
+        const tagsHtml = (cat.tags || []).map(tag => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('');
+        const difficultyBadge = cat.difficulty ? `<span class="difficulty-badge ${cat.difficulty}">${cat.difficulty}</span>` : '';
+        
+        card.innerHTML = `
+            <div class="marketplace-card-header">
+                <h3>${escapeHtml(cat.name)}</h3>
+                ${difficultyBadge}
+            </div>
+            ${cat.description ? `<p class="marketplace-description">${escapeHtml(cat.description)}</p>` : ''}
+            <div class="marketplace-meta">
+                <div class="marketplace-stats">
+                    <span>📊 ${cat.question_count} questions</span>
+                    <span>⭐ ${ratingStars} (${cat.rating_count || 0})</span>
+                    <span>⬇️ ${cat.download_count || 0} downloads</span>
+                </div>
+                <div class="marketplace-author">
+                    by ${escapeHtml(cat.author_name || cat.author_username)}
+                </div>
+            </div>
+            ${tagsHtml ? `<div class="marketplace-tags">${tagsHtml}</div>` : ''}
+            <div class="marketplace-actions">
+                <button class="btn-secondary btn-sm" onclick="previewCategory('${cat.id}')">Preview</button>
+                <button class="btn-primary btn-sm" onclick="openImportCategoryModal('${cat.id}')">Import</button>
+            </div>
+        `;
+        
+        grid.appendChild(card);
+    });
+}
+
+function renderStars(rating) {
+    const fullStars = Math.floor(rating);
+    const hasHalf = rating % 1 >= 0.5;
+    let html = '';
+    
+    for (let i = 0; i < 5; i++) {
+        if (i < fullStars) {
+            html += '★';
+        } else if (i === fullStars && hasHalf) {
+            html += '½';
+        } else {
+            html += '☆';
+        }
+    }
+    
+    return html;
+}
+
+async function previewCategory(categoryId) {
+    try {
+        const response = await fetch(getApiUrl(`/api/marketplace/categories/${categoryId}`), {
+            headers: authHeaders()
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.detail || 'Failed to load category');
+            return;
+        }
+        
+        const category = await response.json();
+        const modal = document.getElementById('previewCategoryModal');
+        const title = document.getElementById('previewCategoryTitle');
+        const content = document.getElementById('previewCategoryContent');
+        const importBtn = document.getElementById('previewImportBtn');
+        
+        title.textContent = category.name;
+        importBtn.dataset.categoryId = categoryId;
+        
+        let questionsHtml = '<div class="preview-questions">';
+        const questions = category.questions || [];
+        
+        questions.slice(0, 10).forEach((q, i) => {
+            questionsHtml += `
+                <div class="preview-question">
+                    <strong>${i + 1}. ${escapeHtml(q.question)}</strong>
+                    <span class="question-type-badge">${TYPE_LABELS[q.type] || q.type}</span>
+                </div>
+            `;
+        });
+        
+        if (questions.length > 10) {
+            questionsHtml += `<p class="preview-more">... and ${questions.length - 10} more questions</p>`;
+        }
+        
+        questionsHtml += '</div>';
+        
+        content.innerHTML = `
+            <div class="preview-info">
+                <p><strong>Description:</strong> ${category.description || 'No description'}</p>
+                <p><strong>Questions:</strong> ${category.question_count}</p>
+                <p><strong>Difficulty:</strong> ${category.difficulty || 'Not specified'}</p>
+                <p><strong>Rating:</strong> ${renderStars(category.rating_average || 0)} (${category.rating_count || 0} ratings)</p>
+                <p><strong>Author:</strong> ${escapeHtml(category.author_name || category.author_username)}</p>
+            </div>
+            ${questionsHtml}
+        `;
+        
+        openModal('previewCategoryModal');
+    } catch (err) {
+        console.error('Error previewing category:', err);
+        alert('Error loading category preview');
+    }
+}
+
+function openShareCategoryModal(categoryId) {
+    if (!questionsData || !questionsData.categories[categoryId]) {
+        alert('Category not found');
+        return;
+    }
+    
+    const category = questionsData.categories[categoryId];
+    
+    if (category.questions.length === 0) {
+        alert('Cannot share a category with no questions');
+        return;
+    }
+    
+    document.getElementById('shareCategoryId').value = categoryId;
+    document.getElementById('shareCategoryName').value = category.name;
+    document.getElementById('shareCategoryDescription').value = '';
+    document.getElementById('shareCategoryTags').value = '';
+    document.getElementById('shareCategoryDifficulty').value = '';
+    
+    // Preview questions
+    const preview = document.getElementById('shareCategoryPreview');
+    let previewHtml = '<ul class="preview-questions-list">';
+    category.questions.slice(0, 5).forEach((q, i) => {
+        previewHtml += `<li>${i + 1}. ${escapeHtml(q.question)} (${TYPE_LABELS[q.type] || q.type})</li>`;
+    });
+    if (category.questions.length > 5) {
+        previewHtml += `<li>... and ${category.questions.length - 5} more questions</li>`;
+    }
+    previewHtml += '</ul>';
+    preview.innerHTML = previewHtml;
+    
+    openModal('shareCategoryModal');
+}
+
+async function shareCategory() {
+    const categoryId = document.getElementById('shareCategoryId').value;
+    const name = document.getElementById('shareCategoryName').value.trim();
+    const description = document.getElementById('shareCategoryDescription').value.trim();
+    const tags = document.getElementById('shareCategoryTags').value.split(',').map(t => t.trim()).filter(t => t);
+    const difficulty = document.getElementById('shareCategoryDifficulty').value;
+    
+    if (!name) {
+        alert('Category name is required');
+        return;
+    }
+    
+    try {
+        const response = await fetch(getApiUrl('/api/marketplace/share'), {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                category_id: categoryId,
+                name: name,
+                description: description,
+                tags: tags,
+                difficulty: difficulty || null
+            })
+        });
+        
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.detail || 'Failed to share category');
+            return;
+        }
+        
+        const result = await response.json();
+        alert('Category shared successfully!');
+        closeModal('shareCategoryModal');
+        
+        // If on marketplace tab, reload
+        if (document.getElementById('marketplaceTabContent').classList.contains('active')) {
+            loadMarketplace();
+        }
+    } catch (err) {
+        console.error('Error sharing category:', err);
+        alert('Error sharing category');
+    }
+}
+
+async function openImportCategoryModal(categoryId) {
+    try {
+        const response = await fetch(getApiUrl(`/api/marketplace/categories/${categoryId}`), {
+            headers: authHeaders()
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.detail || 'Failed to load category');
+            return;
+        }
+        
+        const category = await response.json();
+        const modal = document.getElementById('importCategoryModal');
+        const info = document.getElementById('importCategoryInfo');
+        const newNameInput = document.getElementById('importCategoryNewName');
+        
+        document.getElementById('importCategoryId').value = categoryId;
+        newNameInput.value = '';
+        
+        info.innerHTML = `
+            <div class="import-info">
+                <h4>${escapeHtml(category.name)}</h4>
+                <p><strong>Questions:</strong> ${category.question_count}</p>
+                <p><strong>Description:</strong> ${category.description || 'No description'}</p>
+                <p><strong>Author:</strong> ${escapeHtml(category.author_name || category.author_username)}</p>
+                <p class="import-warning">⚠️ If a category with this name already exists, a number will be added to avoid conflicts.</p>
+            </div>
+        `;
+        
+        openModal('importCategoryModal');
+    } catch (err) {
+        console.error('Error opening import modal:', err);
+        alert('Error loading category');
+    }
+}
+
+async function importCategory() {
+    const categoryId = document.getElementById('importCategoryId').value;
+    const newName = document.getElementById('importCategoryNewName').value.trim();
+    
+    try {
+        const response = await fetch(getApiUrl(`/api/marketplace/categories/${categoryId}/import`), {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                new_name: newName || null
+            })
+        });
+        
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.detail || 'Failed to import category');
+            return;
+        }
+        
+        const result = await response.json();
+        alert(`Category imported successfully as "${result.category_name}"!`);
+        closeModal('importCategoryModal');
+        
+        // Reload questions and switch to questions tab
+        await loadQuestions();
+        switchTab('questions');
+        
+        // Select the imported category
+        if (result.category_id) {
+            selectCategory(result.category_id);
+        }
+    } catch (err) {
+        console.error('Error importing category:', err);
+        alert('Error importing category');
+    }
 }

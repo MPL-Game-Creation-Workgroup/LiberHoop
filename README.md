@@ -58,6 +58,16 @@ LiberHoop is a web-based quiz game platform that combines the competitive fun of
 - Secure password hashing with bcrypt
 - Single login required - authentication persists across admin panel and host display
 
+### 🛒 Question Marketplace
+
+- **Share Categories**: Share your question categories with the community
+- **Browse & Search**: Search shared categories by name, tags, or difficulty
+- **Import Categories**: Import shared categories into your local question bank
+- **Ratings & Reviews**: Rate and review shared categories
+- **Metadata**: Extended metadata including difficulty levels, question counts, ratings, and download statistics
+- **Free & Open**: Completely free sharing platform for educators
+- **Requires Supabase**: Marketplace features require Supabase configuration
+
 ### 📊 Real-time Features
 
 - WebSocket-based real-time communication
@@ -227,6 +237,50 @@ Questions are stored in `data/questions.json` with the following structure:
 
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_KEY`: Your Supabase anon/public key
+
+### Supabase Setup for Marketplace
+
+The marketplace feature requires Supabase to be configured. After setting up your Supabase project, create the following tables:
+
+#### `shared_categories` table
+```sql
+CREATE TABLE shared_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    tags TEXT[] DEFAULT '{}',
+    difficulty TEXT CHECK (difficulty IN ('easy', 'medium', 'hard')),
+    question_count INTEGER NOT NULL,
+    author_username TEXT NOT NULL,
+    author_name TEXT NOT NULL,
+    questions JSONB NOT NULL,
+    rating_average NUMERIC(3,2) DEFAULT 0.0,
+    rating_count INTEGER DEFAULT 0,
+    download_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX idx_shared_categories_active ON shared_categories(is_active);
+CREATE INDEX idx_shared_categories_tags ON shared_categories USING GIN(tags);
+```
+
+#### `shared_category_ratings` table
+```sql
+CREATE TABLE shared_category_ratings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shared_category_id UUID REFERENCES shared_categories(id) ON DELETE CASCADE,
+    rater_username TEXT NOT NULL,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(shared_category_id, rater_username)
+);
+
+CREATE INDEX idx_ratings_category ON shared_category_ratings(shared_category_id);
+```
 
 ## Deployment
 
