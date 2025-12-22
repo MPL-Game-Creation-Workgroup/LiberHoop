@@ -54,6 +54,11 @@
                     <label for="signupPassword">Password</label>
                     <input type="password" id="signupPassword" placeholder="Min 6 characters" required minlength="6">
                 </div>
+                <div class="form-group">
+                    <label for="signupCode">Signup Code (if required)</label>
+                    <input type="text" id="signupCode" placeholder="Enter signup code" autocomplete="off">
+                    <div class="form-help">Leave blank if not required by your administrator</div>
+                </div>
                 <button type="submit" class="btn-primary login-btn">Create Account</button>
                 <p class="login-error" id="signupError"></p>
                 <p class="signup-success" id="signupSuccess" style="display: none;"></p>

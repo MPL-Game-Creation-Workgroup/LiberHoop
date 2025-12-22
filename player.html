@@ -218,7 +218,12 @@
             </div>
             
             <div class="minigame-content">
-                <!-- Microgame UI -->
+                <!-- LÖVE2D Game Container -->
+                <div class="love2d-game-container" id="love2dGameContainer" style="display: none; width: 100%; height: 100%; position: relative;">
+                    <!-- LÖVE2D canvas will be inserted here -->
+                </div>
+                
+                <!-- Microgame UI (fallback/legacy) -->
                 <div class="microgame-ui" id="microgameUI" style="display: none;">
                     <!-- Content generated dynamically -->
                 </div>
@@ -231,6 +236,7 @@
         </div>
     </div>
 
+    <script src="minigames/love2d-wrapper.js"></script>
     <script src="player.js"></script>
 </body>
 </html>

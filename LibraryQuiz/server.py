@@ -22,6 +22,7 @@ import io
 import os
 from dotenv import load_dotenv
 import bcrypt
+import hashlib
 
 # Load environment variables
 load_dotenv()
@@ -43,6 +44,10 @@ app.add_middleware(
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# Admin signup configuration
+ADMIN_SIGNUP_ENABLED = os.getenv("ADMIN_SIGNUP_ENABLED", "false").lower() == "true"
+ADMIN_SIGNUP_CODE = os.getenv("ADMIN_SIGNUP_CODE", "")
 
 supabase_client = None
 if SUPABASE_URL and SUPABASE_KEY:
@@ -245,7 +250,7 @@ def generate_room_code():
     return ''.join(random.choices(string.ascii_uppercase, k=4))
 
 class Player:
-    def __init__(self, player_id: str, name: str):
+    def __init__(self, player_id: str, name: str, device_id: str = None):
         self.id = player_id
         self.name = name
         self.score = 0
@@ -255,6 +260,7 @@ class Player:
         self.wager = 0  # For wager questions
         self.ws: WebSocket = None
         self.team_id: str = None  # Team assignment
+        self.device_id: str = device_id  # Device identifier to prevent multiple players per device
 
 
 class Team:
@@ -1585,7 +1591,7 @@ async def create_room(request: Request):
 
 @app.post("/api/room/{room_code}/join")
 async def join_room(room_code: str, request: Request):
-    """Join a game room as a player"""
+    """Join a game room as a player - only one player per device allowed"""
     room_code = room_code.upper()
     
     if room_code not in rooms:
@@ -1602,8 +1608,16 @@ async def join_room(room_code: str, request: Request):
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
     
+    # Generate device ID to prevent multiple players from same device
+    device_id = get_device_id(request)
+    
+    # Check if a player from this device already exists in the room
+    for existing_player in room.players.values():
+        if existing_player.device_id == device_id:
+            raise HTTPException(status_code=400, detail="Only one player per device allowed")
+    
     player_id = str(uuid.uuid4())[:8]
-    player = Player(player_id, name)
+    player = Player(player_id, name, device_id=device_id)
     room.add_player(player)
     
     # Notify host
@@ -1752,6 +1766,23 @@ async def get_ip():
     return {"ip": ip, "port": 8000}
 
 
+# ─────────────────────────── Device Tracking ─────────────────────────── #
+
+def get_device_id(request: Request) -> str:
+    """Generate a device identifier from request (IP + User-Agent)"""
+    # Get client IP address
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Get User-Agent header
+    user_agent = request.headers.get("User-Agent", "unknown")
+    
+    # Create a hash of IP + User-Agent for device fingerprinting
+    device_string = f"{client_ip}:{user_agent}"
+    device_id = hashlib.md5(device_string.encode()).hexdigest()[:16]
+    
+    return device_id
+
+
 # ─────────────────────────── Admin Routes ─────────────────────────── #
 
 def get_admin_from_request(request: Request) -> str | None:
@@ -1828,11 +1859,23 @@ async def admin_login(request: Request):
 
 @app.post("/api/admin/signup")
 async def admin_signup(request: Request):
-    """Sign up a new admin/host - stores in Supabase database or local admins.json"""
+    """Sign up a new admin/host - stores in Supabase database or local admins.json
+    
+    Requires ADMIN_SIGNUP_ENABLED=true and correct ADMIN_SIGNUP_CODE if signup is restricted.
+    """
+    # Check if signup is enabled
+    if not ADMIN_SIGNUP_ENABLED:
+        raise HTTPException(status_code=403, detail="Admin signup is disabled. Contact an administrator for access.")
+    
     data = await request.json()
     username = data.get("username", "").strip()
     password = data.get("password", "")
     name = data.get("name", username)
+    signup_code = data.get("signup_code", "")
+    
+    # Require signup code if one is configured
+    if ADMIN_SIGNUP_CODE and signup_code != ADMIN_SIGNUP_CODE:
+        raise HTTPException(status_code=401, detail="Invalid signup code")
     
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password required")

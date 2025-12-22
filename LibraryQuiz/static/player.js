@@ -5,6 +5,9 @@
 
 const AVATARS = ['😎', '🤓', '🧠', '📚', '🎮', '🎯', '⭐', '🔥', '💡', '🚀', '🎨', '🎭'];
 
+// LÖVE2D minigame instance
+let currentLove2DGame = null;
+
 const state = {
     playerId: null,
     playerName: '',
@@ -1097,23 +1100,30 @@ function showMinigame(data) {
     showMicrogame(data);
 }
 
+// LÖVE2D minigame instance
+let currentLove2DGame = null;
+
 function showMicrogame(data) {
-    // Show microgame UI, hide puzzle UI
-    const microgameUI = document.getElementById('microgameUI');
+    // Hide puzzle UI
     const puzzleUI = document.getElementById('puzzleGameUI');
-    
-    if (microgameUI) {
-        microgameUI.style.display = 'block';
-        microgameUI.classList.remove('hidden');
-    }
     if (puzzleUI) puzzleUI.style.display = 'none';
+    
+    // Hide legacy microgame UI
+    const microgameUI = document.getElementById('microgameUI');
+    if (microgameUI) microgameUI.style.display = 'none';
+    
+    // Show LÖVE2D game container
+    const love2dContainer = document.getElementById('love2dGameContainer');
+    if (love2dContainer) {
+        love2dContainer.style.display = 'block';
+    }
     
     const titleEl = document.getElementById('minigameTitle');
     const promptEl = document.getElementById('minigamePrompt');
     if (titleEl) titleEl.textContent = '⚡ MICROGAME';
     if (promptEl) promptEl.textContent = 'Get ready...';
     
-    // Start a random microgame
+    // Start a random microgame using LÖVE2D
     startRandomMicrogame();
     
     showScreen('minigameScreen');
@@ -1131,7 +1141,56 @@ function startRandomMicrogame() {
     state.microgameScore = 0;
     state.microgameRound = 0;
     
-    runMicrogame(gameType);
+    // Use LÖVE2D games
+    runLove2DMicrogame(gameType);
+}
+
+async function runLove2DMicrogame(gameType) {
+    // Clean up previous game if exists
+    if (currentLove2DGame) {
+        currentLove2DGame.destroy();
+        currentLove2DGame = null;
+    }
+    
+    // Create new LÖVE2D game instance
+    if (typeof Love2DMinigame === 'undefined') {
+        console.error('Love2DMinigame class not found. Falling back to legacy games.');
+        runMicrogame(gameType);  // Fallback to old implementation
+        return;
+    }
+    
+    const container = document.getElementById('love2dGameContainer');
+    if (!container) {
+        console.error('Love2D container not found');
+        return;
+    }
+    
+    currentLove2DGame = new Love2DMinigame('love2dGameContainer', gameType);
+    
+    // Set up callbacks
+    currentLove2DGame.onScoreUpdate = (score) => {
+        state.microgameScore = score;
+        // Update score display if needed
+        const scoreEl = document.getElementById('microgameScore');
+        if (scoreEl) {
+            scoreEl.textContent = score;
+        }
+    };
+    
+    currentLove2DGame.onComplete = (finalScore) => {
+        state.microgameScore = finalScore;
+        endLocalMinigame();
+    };
+    
+    // Load and start the game
+    try {
+        await currentLove2DGame.load();
+        currentLove2DGame.start();
+    } catch (error) {
+        console.error('Error loading LÖVE2D game:', error);
+        // Fallback to legacy implementation
+        runMicrogame(gameType);
+    }
 }
 
 function runMicrogame(gameType) {
@@ -1333,6 +1392,17 @@ function runMicrogame(gameType) {
 }
 
 function endLocalMinigame() {
+    // Clean up LÖVE2D game
+    if (currentLove2DGame) {
+        currentLove2DGame.destroy();
+        currentLove2DGame = null;
+    }
+    
+    const love2dContainer = document.getElementById('love2dGameContainer');
+    if (love2dContainer) {
+        love2dContainer.style.display = 'none';
+    }
+    
     const microgameUI = document.getElementById('microgameUI');
     if (microgameUI) {
         microgameUI.innerHTML = `

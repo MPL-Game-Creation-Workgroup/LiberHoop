@@ -519,6 +519,7 @@ async function signup() {
     const name = document.getElementById('signupName').value.trim();
     const username = document.getElementById('signupUsername').value.trim();
     const password = document.getElementById('signupPassword').value;
+    const signupCode = document.getElementById('signupCode')?.value.trim() || '';
     const errorEl = document.getElementById('signupError');
     const successEl = document.getElementById('signupSuccess');
     
@@ -538,10 +539,15 @@ async function signup() {
             return;
         }
         
+        const signupData = { name, username, password };
+        if (signupCode) {
+            signupData.signup_code = signupCode;
+        }
+        
         const response = await fetch(getApiUrl('/api/admin/signup'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, username, password }),
+            body: JSON.stringify(signupData),
             signal: AbortSignal.timeout(10000)
         });
         
