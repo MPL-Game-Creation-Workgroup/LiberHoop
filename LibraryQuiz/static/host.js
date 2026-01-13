@@ -31,7 +31,10 @@ const state = {
     awaitingJudgment: false,
     // Minigame state
     previousScreen: 'lobbyScreen',
-    minigameTimerInterval: null
+    minigameTimerInterval: null,
+    // Bowl timer state
+    bowlTimerInterval: null,
+    bowlTimerSeconds: 0
 };
 
 // Helper function to get API URL (similar to admin.js)
@@ -314,6 +317,17 @@ function setupEventListeners() {
     document.getElementById('classicModeBtn').addEventListener('click', () => setGameMode('classic'));
     document.getElementById('bowlModeBtn').addEventListener('click', () => setGameMode('bowl'));
     
+    // Bowl settings
+    const requireAnswerEntry = document.getElementById('requireAnswerEntry');
+    const bowlAnswerTimer = document.getElementById('bowlAnswerTimer');
+    if (requireAnswerEntry) {
+        requireAnswerEntry.addEventListener('change', updateBowlSettings);
+    }
+    if (bowlAnswerTimer) {
+        bowlAnswerTimer.addEventListener('change', updateBowlSettings);
+        bowlAnswerTimer.addEventListener('input', updateBowlSettings);
+    }
+    
     // Bowl mode judgment buttons
     document.getElementById('judgeCorrectBtn').addEventListener('click', () => judgeAnswer(true));
     document.getElementById('judgeIncorrectBtn').addEventListener('click', () => judgeAnswer(false));
@@ -479,6 +493,34 @@ function handleMessage(data) {
         // Game mode events
         case 'game_mode_changed':
             updateGameMode(data);
+            // Update bowl settings if provided
+            if (data.bowl_require_answer_entry !== undefined) {
+                const requireAnswerEntry = document.getElementById('requireAnswerEntry');
+                if (requireAnswerEntry) {
+                    requireAnswerEntry.checked = data.bowl_require_answer_entry;
+                }
+            }
+            if (data.bowl_answer_timer !== undefined) {
+                const bowlAnswerTimer = document.getElementById('bowlAnswerTimer');
+                if (bowlAnswerTimer) {
+                    bowlAnswerTimer.value = data.bowl_answer_timer;
+                }
+            }
+            break;
+            
+        case 'bowl_settings_changed':
+            if (data.bowl_require_answer_entry !== undefined) {
+                const requireAnswerEntry = document.getElementById('requireAnswerEntry');
+                if (requireAnswerEntry) {
+                    requireAnswerEntry.checked = data.bowl_require_answer_entry;
+                }
+            }
+            if (data.bowl_answer_timer !== undefined) {
+                const bowlAnswerTimer = document.getElementById('bowlAnswerTimer');
+                if (bowlAnswerTimer) {
+                    bowlAnswerTimer.value = data.bowl_answer_timer;
+                }
+            }
             break;
         
         // Bowl mode events
@@ -602,6 +644,20 @@ function updateLobby(data) {
     // Update game mode
     state.gameMode = data.game_mode || 'classic';
     updateGameModeUI();
+    
+    // Update bowl settings
+    if (data.bowl_require_answer_entry !== undefined) {
+        const requireAnswerEntry = document.getElementById('requireAnswerEntry');
+        if (requireAnswerEntry) {
+            requireAnswerEntry.checked = data.bowl_require_answer_entry;
+        }
+    }
+    if (data.bowl_answer_timer !== undefined) {
+        const bowlAnswerTimer = document.getElementById('bowlAnswerTimer');
+        if (bowlAnswerTimer) {
+            bowlAnswerTimer.value = data.bowl_answer_timer;
+        }
+    }
     
     // Store all players with team info
     state.players = {};
@@ -843,11 +899,16 @@ function showQuestion(data) {
     
     if (gameMode === 'bowl') {
         // Bowl mode - show buzz UI instead of answers
+        // Clear any answer cards that might be displayed
+        answersGrid.innerHTML = '';
         showBowlUI();
         state.bowlPhase = 'buzzing';
         state.buzzWinner = null;
         state.buzzTeam = null;
         state.awaitingJudgment = false;
+        
+        // Clear any running timer
+        clearBowlTimer();
         
         // Hide the skip button in bowl mode, show answers count differently
         document.getElementById('skipBtn').classList.add('hidden');
@@ -1423,6 +1484,16 @@ function updateGameMode(data) {
         state.teams = data.teams;
     }
     
+    // Update bowl settings UI visibility
+    const bowlSettings = document.getElementById('bowlSettings');
+    if (bowlSettings) {
+        if (state.gameMode === 'bowl') {
+            bowlSettings.classList.remove('hidden');
+        } else {
+            bowlSettings.classList.add('hidden');
+        }
+    }
+    
     updateTeamModeUI();
     renderPlayers();
 }
@@ -1431,15 +1502,18 @@ function updateGameModeUI() {
     const classicBtn = document.getElementById('classicModeBtn');
     const bowlBtn = document.getElementById('bowlModeBtn');
     const modeDesc = document.getElementById('modeDescription');
+    const bowlSettings = document.getElementById('bowlSettings');
     
     if (state.gameMode === 'classic') {
         classicBtn.classList.add('active');
         bowlBtn.classList.remove('active');
         modeDesc.textContent = 'Everyone answers, fastest correct wins most points';
+        if (bowlSettings) bowlSettings.classList.add('hidden');
     } else {
         classicBtn.classList.remove('active');
         bowlBtn.classList.add('active');
         modeDesc.textContent = 'Buzz in to answer! Host judges. Teams required.';
+        if (bowlSettings) bowlSettings.classList.remove('hidden');
     }
 }
 
@@ -1498,10 +1572,80 @@ function showBowlAnswer(data) {
     if (data.is_steal) {
         document.getElementById('buzzLabel').textContent = 'STEALING!';
     }
+    
+    // Start timer if configured
+    startBowlTimer();
+}
+
+function startBowlTimer() {
+    // Clear any existing timer
+    clearBowlTimer();
+    
+    // Get timer duration from current question or state
+    const timerDuration = state.currentQuestion?.bowl_answer_timer || 30;
+    
+    if (timerDuration <= 0) {
+        // No timer limit
+        return;
+    }
+    
+    state.bowlTimerSeconds = timerDuration;
+    
+    // Show timer container
+    const timerContainer = document.getElementById('bowlTimerContainer');
+    const timerText = document.getElementById('bowlTimerText');
+    if (timerContainer) timerContainer.style.display = 'block';
+    if (timerText) timerText.textContent = state.bowlTimerSeconds;
+    
+    // Start countdown
+    state.bowlTimerInterval = setInterval(() => {
+        state.bowlTimerSeconds--;
+        
+        if (timerText) {
+            timerText.textContent = state.bowlTimerSeconds;
+            
+            // Change color when time is running out
+            if (state.bowlTimerSeconds <= 5) {
+                timerText.style.color = 'var(--danger)';
+                timerText.style.animation = 'pulse 0.5s ease-in-out infinite';
+            } else {
+                timerText.style.color = '';
+                timerText.style.animation = '';
+            }
+        }
+        
+        if (state.bowlTimerSeconds <= 0) {
+            clearBowlTimer();
+            // Auto-mark as incorrect when timer expires
+            if (state.awaitingJudgment) {
+                judgeAnswer(false);
+            }
+        }
+    }, 1000);
+}
+
+function clearBowlTimer() {
+    if (state.bowlTimerInterval) {
+        clearInterval(state.bowlTimerInterval);
+        state.bowlTimerInterval = null;
+    }
+    state.bowlTimerSeconds = 0;
+    
+    const timerContainer = document.getElementById('bowlTimerContainer');
+    if (timerContainer) timerContainer.style.display = 'none';
+    
+    const timerText = document.getElementById('bowlTimerText');
+    if (timerText) {
+        timerText.style.color = '';
+        timerText.style.animation = '';
+    }
 }
 
 function judgeAnswer(correct) {
     if (!state.awaitingJudgment) return;
+    
+    // Clear timer when judging
+    clearBowlTimer();
     
     sendToHost({ type: 'judge', correct: correct });
     state.awaitingJudgment = false;
@@ -1546,6 +1690,9 @@ function showStealPhase(data) {
     state.buzzWinner = null;
     state.buzzTeam = null;
     state.awaitingJudgment = false;
+    
+    // Clear timer when entering steal phase (will restart when someone steals)
+    clearBowlTimer();
     
     document.getElementById('bowlWaiting').classList.add('hidden');
     document.getElementById('bowlAnswer').classList.add('hidden');

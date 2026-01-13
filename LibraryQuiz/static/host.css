@@ -1352,6 +1352,29 @@ html, body {
     word-break: break-word;
 }
 
+.bowl-timer-container {
+    margin: 1rem 0;
+}
+
+.bowl-timer-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 4px solid var(--primary);
+    margin: 0 auto;
+}
+
+#bowlTimerText {
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--text);
+    transition: color 0.3s;
+}
+
 .judgment-buttons {
     display: flex;
     justify-content: center;

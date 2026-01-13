@@ -23,6 +23,7 @@ const state = {
     bowlPhase: null,  // 'buzzing', 'answering', 'stealing', 'waiting'
     canBuzz: true,
     wonBuzz: false,
+    bowlRequireAnswerEntry: false,  // Whether answer must be entered before buzzing
     // Minigame state
     minigameState: null,
     currentMicrogame: null,
@@ -316,6 +317,22 @@ function handleMessage(data) {
             showScreen('lobbyScreen');
             state.score = 0;
             clearChat();
+            break;
+            
+        case 'bowl_settings_changed':
+            if (data.bowl_require_answer_entry !== undefined) {
+                state.bowlRequireAnswerEntry = data.bowl_require_answer_entry;
+                // Update UI if we're currently in a bowl mode question
+                if (state.gameMode === 'bowl' && state.bowlPhase === 'buzzing') {
+                    const preBuzzInput = document.getElementById('bowlPreBuzzInput');
+                    if (state.bowlRequireAnswerEntry) {
+                        if (preBuzzInput) preBuzzInput.classList.remove('hidden');
+                    } else {
+                        if (preBuzzInput) preBuzzInput.classList.add('hidden');
+                    }
+                    updateBuzzButtonState();
+                }
+            }
             break;
             
         case 'chat_message':
@@ -922,8 +939,23 @@ function showBuzzButton() {
     document.getElementById('stealContainer').classList.add('hidden');
     document.getElementById('stealIneligible').classList.add('hidden');
     
+    updateBuzzButtonState();
+}
+
+function updateBuzzButtonState() {
     const buzzBtn = document.getElementById('buzzBtn');
+    if (!buzzBtn) return;
+    
     buzzBtn.disabled = !state.canBuzz;
+    
+    // If answer entry is required, disable buzz button if answer is empty
+    if (state.bowlRequireAnswerEntry) {
+        const preBuzzText = document.getElementById('bowlPreBuzzText');
+        if (preBuzzText && !preBuzzText.value.trim()) {
+            buzzBtn.disabled = true;
+        }
+    }
+    
     buzzBtn.classList.remove('buzzed');
 }
 
@@ -1023,14 +1055,28 @@ function showBowlResult(data, wasCorrect) {
 function sendBuzz() {
     if (!state.canBuzz || state.answered) return;
     
+    // If answer entry is required, get the pre-entered answer
+    let preAnswer = null;
+    if (state.bowlRequireAnswerEntry) {
+        const preBuzzText = document.getElementById('bowlPreBuzzText');
+        if (preBuzzText) {
+            preAnswer = preBuzzText.value.trim();
+            if (!preAnswer) return; // Don't allow buzz without answer
+        }
+    }
+    
     // Disable buzz button immediately
     const buzzBtn = document.getElementById('buzzBtn');
     buzzBtn.disabled = true;
     buzzBtn.classList.add('buzzed');
     
-    // Send buzz to server
+    // Send buzz to server (with answer if required)
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-        state.ws.send(JSON.stringify({ type: 'buzz' }));
+        const buzzMsg = { type: 'buzz' };
+        if (preAnswer) {
+            buzzMsg.answer = preAnswer;
+        }
+        state.ws.send(JSON.stringify(buzzMsg));
     }
 }
 

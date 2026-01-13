@@ -131,6 +131,12 @@
             
             <!-- Bowl mode: buzz and answer UI -->
             <div class="bowl-player-ui hidden" id="bowlPlayerUI">
+                <!-- Pre-buzz answer input (shown when require_answer_entry is enabled) -->
+                <div class="bowl-pre-buzz-input hidden" id="bowlPreBuzzInput">
+                    <p class="bowl-prompt">Type your answer before buzzing:</p>
+                    <input type="text" id="bowlPreBuzzText" placeholder="Type your answer..." autocomplete="off" maxlength="100">
+                </div>
+                
                 <!-- Buzz button -->
                 <div class="buzz-container" id="buzzContainer">
                     <button class="buzz-btn" id="buzzBtn">
@@ -139,7 +145,7 @@
                     </button>
                 </div>
                 
-                <!-- Answer input (shown after winning buzz) -->
+                <!-- Answer input (shown after winning buzz, when require_answer_entry is disabled) -->
                 <div class="bowl-answer-input hidden" id="bowlAnswerInput">
                     <p class="bowl-prompt">You buzzed first! Type your answer:</p>
                     <input type="text" id="bowlAnswerText" placeholder="Type your answer..." autocomplete="off" maxlength="100">
