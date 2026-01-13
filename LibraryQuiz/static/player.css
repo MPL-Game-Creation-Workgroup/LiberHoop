@@ -1240,6 +1240,115 @@ html, body {
     cursor: not-allowed;
 }
 
+/* ─────────────────────────── Lobby Chat ─────────────────────────── */
+
+.lobby-chat {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+}
+
+.lobby-chat h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 200px;
+    padding-right: 0.5rem;
+}
+
+.chat-message {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: var(--bg-dark);
+    animation: fadeIn 0.3s ease;
+}
+
+.chat-message.own-message {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    align-self: flex-end;
+    max-width: 80%;
+}
+
+.chat-message.other-message {
+    background: var(--bg-dark);
+    align-self: flex-start;
+    max-width: 80%;
+}
+
+.chat-message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.chat-player-name {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.chat-time {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.chat-message-text {
+    color: var(--text);
+    word-wrap: break-word;
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#chatInput {
+    flex: 1;
+    padding: 0.75rem;
+    font-size: 1rem;
+    font-family: inherit;
+    background: var(--bg-dark);
+    border: 2px solid var(--primary);
+    border-radius: 8px;
+    color: var(--text);
+}
+
+#chatInput:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.chat-send-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.chat-send-btn:active {
+    transform: scale(0.95);
+}
+
 /* ─────────────────────────── Lobby Minigames ─────────────────────────── */
 
 .lobby-minigames {

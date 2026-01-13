@@ -310,6 +310,9 @@ class GameRoom:
         self.minigame_submissions: dict[str, dict] = {}  # player_id -> {"data": str, "player_name": str, "timestamp": float}
         self.previous_state = None  # State to return to after minigame
         
+        # Chat support (lobby only)
+        self.chat_messages: list[dict] = []  # List of {"id": str, "player_id": str, "player_name": str, "message": str, "timestamp": float}
+        
     def add_player(self, player: Player):
         self.players[player.id] = player
         
@@ -454,7 +457,8 @@ class GameRoom:
             "player_count": len(self.players),
             "team_mode": self.team_mode,
             "teams": {tid: t.to_dict() for tid, t in self.teams.items()},
-            "game_mode": self.game_mode
+            "game_mode": self.game_mode,
+            "chat_messages": self.chat_messages
         }
         # Include minigame state if active
         if self.state == "minigame" and self.minigame_state:
@@ -1268,6 +1272,9 @@ async def handle_host_message(room: GameRoom, data: dict):
         num_questions = data.get("num_questions", 10)
         time_limit = data.get("time_limit", None)  # None = use default, 0 = wait for all
         
+        # Clear chat messages when game starts
+        room.chat_messages = []
+        
         room.setup_game(categories, num_questions)
         room.custom_time_limit = time_limit
         room.current_question_idx = -1
@@ -1337,6 +1344,21 @@ async def handle_host_message(room: GameRoom, data: dict):
                 "game_mode": room.game_mode,
                 "team_mode": room.team_mode,
                 "teams": {tid: t.to_dict() for tid, t in room.teams.items()}
+            })
+    
+    # ─────────────────────────── Chat Moderation Handlers ─────────────────────────── #
+    
+    elif msg_type == "delete_chat_message":
+        # Host deleting a chat message
+        message_id = data.get("message_id")
+        if message_id:
+            # Find and remove the message
+            room.chat_messages = [msg for msg in room.chat_messages if msg.get("id") != message_id]
+            
+            # Broadcast deletion to all players and host
+            await broadcast_to_room(room, {
+                "type": "chat_message_deleted",
+                "message_id": message_id
             })
     
     # ─────────────────────────── Bowl Mode Host Handlers ─────────────────────────── #
@@ -1584,6 +1606,36 @@ async def handle_player_message(room: GameRoom, player: Player, data: dict):
             # If all players answered, reveal early
             if all(p.current_answer is not None for p in room.players.values()):
                 await reveal_answer(room)
+    
+    # ─────────────────────────── Chat Handlers ─────────────────────────── #
+    
+    elif msg_type == "chat_message":
+        # Player sending a chat message (lobby only)
+        if room.state != "lobby":
+            return  # Chat only available in lobby
+        
+        message_text = data.get("message", "").strip()
+        if not message_text or len(message_text) > 200:
+            return  # Invalid message (empty or too long)
+        
+        # Create chat message object
+        message_id = str(uuid.uuid4())
+        chat_message = {
+            "id": message_id,
+            "player_id": player.id,
+            "player_name": player.name,
+            "message": message_text,
+            "timestamp": time.time()
+        }
+        
+        # Add to room's chat messages
+        room.chat_messages.append(chat_message)
+        
+        # Broadcast to all players and host
+        await broadcast_to_room(room, {
+            "type": "chat_message",
+            **chat_message
+        })
     
     # ─────────────────────────── Bowl Mode Handlers ─────────────────────────── #
     

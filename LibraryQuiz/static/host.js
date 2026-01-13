@@ -418,6 +418,7 @@ function handleMessage(data) {
             break;
             
         case 'game_starting':
+            clearChat();
             showScreen('questionScreen');
             break;
             
@@ -439,6 +440,15 @@ function handleMessage(data) {
             
         case 'room_reset':
             resetToLobby(data);
+            clearChat();
+            break;
+            
+        case 'chat_message':
+            addChatMessage(data);
+            break;
+            
+        case 'chat_message_deleted':
+            removeChatMessage(data.message_id);
             break;
             
         case 'session_closed':
@@ -604,6 +614,12 @@ function updateLobby(data) {
     
     // Re-render all players
     renderPlayers();
+    
+    // Load chat messages if provided
+    if (data.chat_messages) {
+        clearChat();
+        data.chat_messages.forEach(msg => addChatMessage(msg));
+    }
 }
 
 function addPlayer(player) {
@@ -1834,6 +1850,55 @@ function showMinigameResults(data) {
         // The server will send room_state to return to previous state
         // We'll handle it in the room_state case
     }, 3000);
+}
+
+// ─────────────────────────── Chat Functions ─────────────────────────── #
+
+function addChatMessage(messageData) {
+    const chatMessages = document.getElementById('chatMessagesHost');
+    if (!chatMessages) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message-host';
+    messageDiv.dataset.messageId = messageData.id;
+    
+    const time = new Date(messageData.timestamp * 1000);
+    const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    messageDiv.innerHTML = `
+        <div class="chat-message-header-host">
+            <span class="chat-player-name-host">${escapeHtml(messageData.player_name)}</span>
+            <span class="chat-time-host">${timeStr}</span>
+            <button class="chat-delete-btn" onclick="deleteChatMessage('${messageData.id}')" title="Delete message">🗑️</button>
+        </div>
+        <div class="chat-message-text-host">${escapeHtml(messageData.message)}</div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function removeChatMessage(messageId) {
+    const messageDiv = document.querySelector(`.chat-message-host[data-message-id="${messageId}"]`);
+    if (messageDiv) {
+        messageDiv.remove();
+    }
+}
+
+function clearChat() {
+    const chatMessages = document.getElementById('chatMessagesHost');
+    if (chatMessages) {
+        chatMessages.innerHTML = '';
+    }
+}
+
+function deleteChatMessage(messageId) {
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+    
+    state.ws.send(JSON.stringify({
+        type: 'delete_chat_message',
+        message_id: messageId
+    }));
 }
 
 // ─────────────────────────── Start ─────────────────────────── #

@@ -225,6 +225,84 @@ html, body {
     color: white;
 }
 
+/* ─────────────────────────── Lobby Chat (Host) ─────────────────────────── */
+
+.lobby-chat-host {
+    grid-column: 1 / -1;
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+}
+
+.lobby-chat-host h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text);
+}
+
+.chat-messages-host {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 200px;
+    padding-right: 0.5rem;
+}
+
+.chat-message-host {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: var(--bg-dark);
+    animation: fadeIn 0.3s ease;
+    position: relative;
+}
+
+.chat-message-header-host {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.chat-player-name-host {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.chat-time-host {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.chat-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.chat-delete-btn:hover {
+    opacity: 1;
+    background: var(--danger);
+    color: white;
+}
+
+.chat-message-text-host {
+    color: var(--text);
+    word-wrap: break-word;
+}
+
 .host-controls {
     grid-column: 1 / -1;
     display: flex;

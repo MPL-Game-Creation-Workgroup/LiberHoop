@@ -259,6 +259,12 @@ function handleMessage(data) {
             if (data.host_connected === false) {
                 showHostDisconnected();
             }
+            
+            // Load chat messages if in lobby
+            if (data.state === 'lobby' && data.chat_messages) {
+                clearChat();
+                data.chat_messages.forEach(msg => addChatMessage(msg));
+            }
             break;
             
         case 'game_starting':
@@ -273,6 +279,8 @@ function handleMessage(data) {
                     state.minigameTimerInterval = null;
                 }
             }
+            // Clear chat when game starts
+            clearChat();
             // Show countdown or transition
             break;
             
@@ -307,6 +315,15 @@ function handleMessage(data) {
             hideHostDisconnected();
             showScreen('lobbyScreen');
             state.score = 0;
+            clearChat();
+            break;
+            
+        case 'chat_message':
+            addChatMessage(data);
+            break;
+            
+        case 'chat_message_deleted':
+            removeChatMessage(data.message_id);
             break;
             
         case 'kicked':
@@ -1672,6 +1689,87 @@ function startSequencePuzzle() {
         }
     });
 }
+
+// ─────────────────────────── Chat Functions ─────────────────────────── #
+
+function addChatMessage(messageData) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message';
+    messageDiv.dataset.messageId = messageData.id;
+    
+    const isOwnMessage = messageData.player_id === state.playerId;
+    messageDiv.classList.add(isOwnMessage ? 'own-message' : 'other-message');
+    
+    const time = new Date(messageData.timestamp * 1000);
+    const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    messageDiv.innerHTML = `
+        <div class="chat-message-header">
+            <span class="chat-player-name">${escapeHtml(messageData.player_name)}</span>
+            <span class="chat-time">${timeStr}</span>
+        </div>
+        <div class="chat-message-text">${escapeHtml(messageData.message)}</div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function removeChatMessage(messageId) {
+    const messageDiv = document.querySelector(`.chat-message[data-message-id="${messageId}"]`);
+    if (messageDiv) {
+        messageDiv.remove();
+    }
+}
+
+function clearChat() {
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.innerHTML = '';
+    }
+}
+
+function sendChatMessage() {
+    const chatInput = document.getElementById('chatInput');
+    if (!chatInput || !state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+    
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    state.ws.send(JSON.stringify({
+        type: 'chat_message',
+        message: message
+    }));
+    
+    chatInput.value = '';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Initialize chat event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const chatInput = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+    }
+    
+    if (chatSendBtn) {
+        chatSendBtn.addEventListener('click', sendChatMessage);
+    }
+});
 
 // ─────────────────────────── Init ─────────────────────────── #
 
