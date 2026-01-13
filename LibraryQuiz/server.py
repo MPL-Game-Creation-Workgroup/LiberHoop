@@ -1142,6 +1142,10 @@ async def player_websocket(websocket: WebSocket, room_code: str, player_id: str)
         "team": room.teams[player.team_id].to_dict() if player.team_id and player.team_id in room.teams else None
     }
     
+    # Include chat messages if in lobby state
+    if room.state == "lobby":
+        join_msg["chat_messages"] = room.chat_messages
+    
     # Include minigame state if active
     if room.state == "minigame" and room.minigame_state:
         join_msg["minigame_state"] = room.minigame_state

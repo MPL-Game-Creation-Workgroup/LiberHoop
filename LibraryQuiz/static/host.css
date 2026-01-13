@@ -30,18 +30,19 @@
 }
 
 html, body {
-    height: 100%;
+    min-height: 100%;
     font-family: 'Nunito', sans-serif;
     background: linear-gradient(135deg, var(--bg-dark) 0%, #0f0f1a 100%);
     color: var(--text);
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* ─────────────────────────── Screens ─────────────────────────── */
 
 .screen {
     display: none;
-    height: 100vh;
+    min-height: 100vh;
     padding: 2rem;
     animation: fadeIn 0.4s ease;
 }
